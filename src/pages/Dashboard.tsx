@@ -3,20 +3,11 @@ import { customerAPI, productAPI, transactionAPI } from '../lib/tauri'
 import { formatCurrency } from '../lib/utils'
 
 export default function Dashboard() {
-  const { data: customers, isLoading: customersLoading } = useQuery({
-    queryKey: ['customers'],
-    queryFn: customerAPI.getAll
-  })
+  const { data: customers, isLoading: customersLoading } = useQuery(['customers'], () => customerAPI.getAll())
 
-  const { data: products, isLoading: productsLoading } = useQuery({
-    queryKey: ['products'],
-    queryFn: productAPI.getAll
-  })
+  const { data: products, isLoading: productsLoading } = useQuery(['products'], () => productAPI.getAll())
 
-  const { data: transactions, isLoading: transactionsLoading } = useQuery({
-    queryKey: ['transactions'],
-    queryFn: transactionAPI.getAll
-  })
+  const { data: transactions, isLoading: transactionsLoading } = useQuery(['transactions'], () => transactionAPI.getAll())
 
   // 이번 달 매출 계산
   const thisMonthSales = transactions

@@ -44,8 +44,8 @@ pub async fn create_customer(pool: &DbPool, request: CreateCustomerRequest) -> A
         r#"
         INSERT INTO customers (
             name, business_number, address, phone, email, 
-            contact_person, customer_type, created_at, updated_at
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+            customer_type, created_at, updated_at
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
         "#
     )
     .bind(&request.name)
@@ -53,7 +53,6 @@ pub async fn create_customer(pool: &DbPool, request: CreateCustomerRequest) -> A
     .bind(&request.address)
     .bind(&request.phone)
     .bind(&request.email)
-    .bind(&request.contact_person)
     .bind(&request.customer_type)
     .bind(now)
     .bind(now)
@@ -97,9 +96,6 @@ pub async fn update_customer(pool: &DbPool, id: i64, request: UpdateCustomerRequ
     if request.email.is_some() {
         query_parts.push("email = ?");
     }
-    if request.contact_person.is_some() {
-        query_parts.push("contact_person = ?");
-    }
     if request.customer_type.is_some() {
         query_parts.push("customer_type = ?");
     }
@@ -132,9 +128,6 @@ pub async fn update_customer(pool: &DbPool, id: i64, request: UpdateCustomerRequ
     }
     if let Some(email) = &request.email {
         query = query.bind(email);
-    }
-    if let Some(contact_person) = &request.contact_person {
-        query = query.bind(contact_person);
     }
     if let Some(customer_type) = &request.customer_type {
         query = query.bind(customer_type);
@@ -176,23 +169,21 @@ pub async fn search_customers(pool: &DbPool, query: &str, customer_type: Option<
             r#"
             SELECT * FROM customers 
             WHERE customer_type = ? 
-            AND (name LIKE ? OR business_number LIKE ? OR contact_person LIKE ?)
+            AND (name LIKE ? OR business_number LIKE ?)
             ORDER BY name
             "#
         )
         .bind(ctype)
         .bind(&search_query)
         .bind(&search_query)
-        .bind(&search_query)
     } else {
         sqlx::query_as::<_, Customer>(
             r#"
             SELECT * FROM customers 
-            WHERE name LIKE ? OR business_number LIKE ? OR contact_person LIKE ?
+            WHERE name LIKE ? OR business_number LIKE ?
             ORDER BY name
             "#
         )
-        .bind(&search_query)
         .bind(&search_query)
         .bind(&search_query)
     };

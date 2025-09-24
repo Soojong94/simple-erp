@@ -21,10 +21,10 @@ pub struct Customer {
     pub id: i64,
     pub name: String,
     pub business_number: Option<String>,
+    pub representative: Option<String>,
     pub address: Option<String>,
     pub phone: Option<String>,
     pub email: Option<String>,
-    pub contact_person: Option<String>,
     pub customer_type: String, // 'customer' or 'supplier'
     pub created_at: DateTime<Utc>,
     pub updated_at: DateTime<Utc>,
@@ -136,7 +136,6 @@ pub struct CreateCustomerRequest {
     pub address: Option<String>,
     pub phone: Option<String>,
     pub email: Option<String>,
-    pub contact_person: Option<String>,
     pub customer_type: String,
 }
 
@@ -147,7 +146,6 @@ pub struct UpdateCustomerRequest {
     pub address: Option<String>,
     pub phone: Option<String>,
     pub email: Option<String>,
-    pub contact_person: Option<String>,
     pub customer_type: Option<String>,
 }
 

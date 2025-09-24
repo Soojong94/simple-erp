@@ -16,7 +16,7 @@ export interface Product {
   code?: string
   unit: string
   unit_price: number
-  tax_type: 'taxable' | 'tax_free'
+  tax_rate: number
   created_at?: string
 }
 

@@ -4,10 +4,7 @@ import type { Product } from '../types'
 import { formatCurrency } from '../lib/utils'
 
 export default function Products() {
-  const { data: products, isLoading, error } = useQuery({
-    queryKey: ['products'],
-    queryFn: productAPI.getAll
-  })
+  const { data: products, isLoading, error } = useQuery(['products'], () => productAPI.getAll())
 
   if (error) {
     return (
@@ -57,7 +54,7 @@ export default function Products() {
                       단위
                     </th>
                     <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wide">
-                      세금유형
+                      세율
                     </th>
                     <th className="relative px-6 py-3">
                       <span className="sr-only">액션</span>
@@ -95,14 +92,8 @@ export default function Products() {
                         <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
                           {product.unit}
                         </td>
-                        <td className="px-6 py-4 whitespace-nowrap">
-                          <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${
-                            product.tax_type === 'taxable'
-                              ? 'bg-green-100 text-green-800'
-                              : 'bg-gray-100 text-gray-800'
-                          }`}>
-                            {product.tax_type === 'taxable' ? '과세' : '면세'}
-                          </span>
+                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                          {`${product.tax_rate * 100}%`}
                         </td>
                         <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
                           <button className="text-blue-600 hover:text-blue-900 mr-3">

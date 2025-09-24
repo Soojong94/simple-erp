@@ -1,5 +1,5 @@
 import { invoke } from '@tauri-apps/api/tauri'
-import type { Customer, Product, Transaction, TransactionWithItems, TaxInvoice, Company } from '../types'
+import type { Customer, Product, TransactionWithItems, TaxInvoice, Company } from '../types'
 
 // 고객 관리 API
 export const customerAPI = {
