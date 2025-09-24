@@ -30,3 +30,17 @@ default = ["custom-protocol"]
 # this feature is used for production builds or when `devPath` points to the filesystem
 # DO NOT REMOVE!!
 custom-protocol = ["tauri/custom-protocol"]
+
+# 개발용 최적화 설정
+[profile.dev]
+opt-level = 1        # 약간의 최적화로 컴파일 속도 향상
+debug = true         # 디버그 정보 유지
+split-debuginfo = "unpacked"  # Windows에서 빠른 링킹
+
+[profile.dev.build-override]
+opt-level = 3        # 빌드 스크립트 최적화
+
+# 의존성 컴파일 최적화
+[profile.dev.package."*"]
+opt-level = 2        # 의존성은 더 많이 최적화
+debug = false        # 의존성 디버그 정보 제거

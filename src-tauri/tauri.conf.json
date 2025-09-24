@@ -50,13 +50,6 @@
         "depends": []
       },
       "externalBin": [],
-      "icon": [
-        "icons/32x32.png",
-        "icons/128x128.png",
-        "icons/128x128@2x.png",
-        "icons/icon.icns",
-        "icons/icon.ico"
-      ],
       "identifier": "com.simple-erp.app",
       "longDescription": "중소기업용 무료 로컬 ERP 시스템",
       "macOS": {
