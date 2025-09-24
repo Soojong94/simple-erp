@@ -20,7 +20,7 @@ const navigation = [
   { name: '거래처 관리', href: '/customers', icon: Users },
   { name: '상품 관리', href: '/products', icon: Package },
   { name: '거래 관리', href: '/transactions', icon: ShoppingCart },
-  { name: '세금계산서', href: '/tax-invoices', icon: FileText },
+
   { name: '보고서', href: '/reports', icon: BarChart3 },
   { name: '설정', href: '/settings', icon: Settings },
 ]

@@ -89,3 +89,21 @@ export async function downloadFile(blob: Blob, filename: string): Promise<void> 
   document.body.removeChild(a)
   URL.revokeObjectURL(url)
 }
+
+// 디바운스 함수 (자동 백업용)
+export function debounce<T extends (...args: any[]) => any>(
+  func: T,
+  wait: number
+): (...args: Parameters<T>) => void {
+  let timeout: NodeJS.Timeout | null = null
+  
+  return (...args: Parameters<T>) => {
+    if (timeout) {
+      clearTimeout(timeout)
+    }
+    
+    timeout = setTimeout(() => {
+      func(...args)
+    }, wait)
+  }
+}

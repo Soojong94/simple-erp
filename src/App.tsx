@@ -5,23 +5,35 @@ import Dashboard from './pages/Dashboard'
 import Customers from './pages/Customers'
 import Products from './pages/Products'
 import Transactions from './pages/Transactions'
-import TaxInvoices from './pages/TaxInvoices'
+
 import Reports from './pages/Reports'
 import Settings from './pages/Settings'
 
-const queryClient = new QueryClient()
+const queryClient = new QueryClient({
+  defaultOptions: {
+    queries: {
+      retry: 2,
+      staleTime: 1000 * 60 * 5, // 5분
+    },
+  },
+})
 
 function App() {
   return (
     <QueryClientProvider client={queryClient}>
-      <Router>
+      <Router
+        future={{
+          v7_startTransition: true,
+          v7_relativeSplatPath: true,
+        }}
+      >
         <Layout>
           <Routes>
             <Route path="/" element={<Dashboard />} />
             <Route path="/customers" element={<Customers />} />
             <Route path="/products" element={<Products />} />
             <Route path="/transactions" element={<Transactions />} />
-            <Route path="/tax-invoices" element={<TaxInvoices />} />
+
             <Route path="/reports" element={<Reports />} />
             <Route path="/settings" element={<Settings />} />
           </Routes>
