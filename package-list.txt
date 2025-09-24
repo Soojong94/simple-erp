@@ -1,0 +1,15 @@
+@tauri-apps/api
+@tauri-apps/cli
+react-router-dom
+@tanstack/react-query
+tailwindcss
+@tailwindcss/forms
+@tailwindcss/typography
+postcss
+autoprefixer
+lucide-react
+react-hook-form
+@hookform/resolvers
+zod
+date-fns
+clsx

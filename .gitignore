@@ -1,0 +1,134 @@
+# Dependencies
+node_modules/
+**/node_modules/
+
+# Production builds
+dist/
+build/
+out/
+
+# Tauri build outputs
+src-tauri/target/
+src-tauri/Cargo.lock
+
+# Environment variables
+.env
+.env.local
+.env.development.local
+.env.test.local
+.env.production.local
+
+# IDE and editor files
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# OS generated files
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+
+# Logs
+logs/
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+lerna-debug.log*
+
+# Runtime data
+pids/
+*.pid
+*.seed
+*.pid.lock
+
+# Coverage directory used by tools like istanbul
+coverage/
+*.lcov
+
+# nyc test coverage
+.nyc_output/
+
+# Dependency directories
+jspm_packages/
+
+# TypeScript cache
+*.tsbuildinfo
+
+# Optional npm cache directory
+.npm
+
+# Optional eslint cache
+.eslintcache
+
+# Output of 'npm pack'
+*.tgz
+
+# Yarn Integrity file
+.yarn-integrity
+
+# parcel-bundler cache (https://parceljs.org/)
+.cache
+.parcel-cache
+
+# Next.js build output
+.next
+
+# Nuxt.js build / generate output
+.nuxt
+dist
+
+# Storybook build outputs
+.out
+.storybook-out
+
+# Temporary folders
+tmp/
+temp/
+
+# SQLite database files (보안상 중요)
+data/
+*.db
+*.sqlite
+*.sqlite3
+
+# Generated invoices and documents
+invoices/
+documents/
+uploads/
+
+# Tauri specific
+src-tauri/WixTools/
+src-tauri/target/
+src-tauri/gen/
+
+# Rust specific
+**/*.rs.bk
+Cargo.lock
+
+# Local configuration files
+config.local.json
+settings.local.json
+
+# API keys and secrets (보안 중요)
+*.pem
+*.key
+.secret
+secrets.json
+api-keys.json
+
+# Backup files
+*.backup
+*.bak
+*.orig
+
+# Lock files (선택적 - 팀 정책에 따라)
+# package-lock.json
+# yarn.lock
