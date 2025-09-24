@@ -2,7 +2,7 @@ use crate::database::DbPool;
 use crate::errors::{AppError, AppResult};
 use crate::models::{
     Transaction, TransactionItem, TransactionWithItems, TransactionItemWithProduct,
-    CreateTransactionRequest, CreateTransactionItemRequest, UpdateTransactionRequest,
+    CreateTransactionRequest, UpdateTransactionRequest,
     Customer, Product
 };
 use chrono::Utc;
@@ -18,9 +18,9 @@ pub async fn get_transactions(
     let mut where_conditions = Vec::new();
     let mut params: Vec<Box<dyn sqlx::Encode<'_, sqlx::Sqlite> + Send>> = Vec::new();
     
-    if let Some(ttype) = transaction_type {
+    if let Some(ref ttype) = transaction_type {
         where_conditions.push("t.transaction_type = ?");
-        params.push(Box::new(ttype));
+        params.push(Box::new(ttype.clone()));
     }
     
     if let Some(cid) = customer_id {

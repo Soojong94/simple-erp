@@ -5,14 +5,16 @@ import type { Customer } from '../types'
 export default function Customers() {
   const { data: customers, isLoading, error } = useQuery({
     queryKey: ['customers'],
-    queryFn: customerAPI.getAll
+    queryFn: () => customerAPI.getAll()
   })
 
   if (error) {
+    console.error('Customer API error:', error)
     return (
       <div className="text-center py-12">
         <div className="text-red-600 mb-4">오류가 발생했습니다</div>
         <p className="text-gray-500">거래처 목록을 불러올 수 없습니다.</p>
+        <pre className="text-xs text-gray-400 mt-4">{error.toString()}</pre>
       </div>
     )
   }

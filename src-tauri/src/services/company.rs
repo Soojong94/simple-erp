@@ -2,7 +2,7 @@ use crate::database::DbPool;
 use crate::errors::{AppError, AppResult};
 use crate::models::{Company, CreateCompanyRequest, UpdateCompanyRequest};
 use chrono::Utc;
-use sqlx::Row;
+
 
 pub async fn get_company(pool: &DbPool) -> AppResult<Option<Company>> {
     let company = sqlx::query_as::<_, Company>(

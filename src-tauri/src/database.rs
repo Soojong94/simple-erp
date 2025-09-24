@@ -6,10 +6,13 @@ use anyhow::Result;
 pub type DbPool = Pool<Sqlite>;
 
 pub async fn init_db(app_handle: &AppHandle) -> Result<DbPool> {
+    // 개발 중에는 프로젝트 루트의 data 폴더 사용
     let app_dir = app_handle
         .path_resolver()
-        .app_data_dir()
-        .expect("Failed to resolve app data dir");
+        .resource_dir()
+        .map(|p| p.parent().unwrap().to_path_buf())
+        .unwrap_or_else(|| std::env::current_dir().unwrap())
+        .join("data");
     
     // Ensure the data directory exists
     tokio::fs::create_dir_all(&app_dir).await?;
@@ -19,7 +22,12 @@ pub async fn init_db(app_handle: &AppHandle) -> Result<DbPool> {
     
     println!("Connecting to database at: {}", db_url);
     
-    let pool = SqlitePool::connect(&db_url).await?;
+    // SQLite 연결 옵션 추가
+    let pool = SqlitePool::connect_with(
+        sqlx::sqlite::SqliteConnectOptions::new()
+            .filename(&db_path)
+            .create_if_missing(true)
+    ).await?;
     
     // Run migrations
     run_migrations(&pool).await?;
@@ -42,6 +50,7 @@ async fn run_migrations(pool: &DbPool) -> Result<()> {
     
     for statement in statements {
         if !statement.is_empty() {
+            println!("Executing: {}", &statement[..50.min(statement.len())]);
             sqlx::query(statement).execute(pool).await?;
         }
     }
@@ -54,7 +63,9 @@ async fn run_migrations(pool: &DbPool) -> Result<()> {
 pub fn get_db_path(app_handle: &AppHandle) -> PathBuf {
     let app_dir = app_handle
         .path_resolver()
-        .app_data_dir()
-        .expect("Failed to resolve app data dir");
+        .resource_dir()
+        .map(|p| p.parent().unwrap().to_path_buf())
+        .unwrap_or_else(|| std::env::current_dir().unwrap())
+        .join("data");
     app_dir.join("simple_erp.db")
 }

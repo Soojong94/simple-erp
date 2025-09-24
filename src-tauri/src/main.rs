@@ -9,6 +9,7 @@ mod commands;
 
 use database::init_db;
 use commands::*;
+use tauri::Manager;
 
 #[tokio::main]
 async fn main() {
