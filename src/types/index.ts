@@ -33,7 +33,6 @@ export interface Transaction {
   due_date?: string
   total_amount: number
   tax_amount: number
-  status: 'draft' | 'confirmed' | 'cancelled'
   notes?: string
   created_at?: string
 }
@@ -60,7 +59,6 @@ export interface TransactionWithItems {
   due_date?: string
   total_amount: number
   tax_amount: number
-  status: 'draft' | 'confirmed' | 'cancelled'
   notes?: string
   created_at?: string
   items: TransactionItem[]
