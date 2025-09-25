@@ -1,5 +1,30 @@
 import type { Customer, Product, TransactionWithItems, CustomerProductPrice, Company } from '../types'
 
+// Tauri API imports (런타임에서만 import)
+let tauriFs: any = null
+let tauriPath: any = null
+let tauriDialog: any = null
+
+// Tauri 모듈 동적 import
+const loadTauriAPIs = async () => {
+  try {
+    if (typeof window !== 'undefined' && window.__TAURI_IPC__) {
+      const [fs, path, dialog] = await Promise.all([
+        import('@tauri-apps/api/fs'),
+        import('@tauri-apps/api/path'),
+        import('@tauri-apps/api/dialog')
+      ])
+      tauriFs = fs
+      tauriPath = path
+      tauriDialog = dialog
+      return true
+    }
+  } catch (error) {
+    console.warn('Tauri APIs not available:', error)
+  }
+  return false
+}
+
 // 백업 데이터 타입 정의
 export interface BackupData {
   customers: Customer[]
@@ -16,16 +41,32 @@ export interface BackupData {
   }
 }
 
-// localStorage 키 상수 (tauri.ts와 동일)
+// 백업 파일 정보 타입
+export interface BackupFileInfo {
+  name: string
+  path: string
+  size: number
+  created: string
+  totalRecords?: number
+}
+
+// 백업 설정 타입
+export interface BackupSettings {
+  enabled: boolean
+  backupPath: string
+}
+
+// localStorage 키 상수 (기존과 동일)
 const STORAGE_KEYS = {
   CUSTOMERS: 'simple-erp-customers',
-  PRODUCTS: 'simple-erp-products',
+  PRODUCTS: 'simple-erp-products', 
   TRANSACTIONS: 'simple-erp-transactions',
   CUSTOMER_PRODUCT_PRICES: 'simple-erp-customer-product-prices',
   COMPANY: 'simple-erp-company',
   NEXT_IDS: 'simple-erp-next-ids',
   LAST_BACKUP_DATE: 'simple-erp-last-backup-date',
-  AUTO_BACKUP_ENABLED: 'simple-erp-auto-backup-enabled'
+  AUTO_BACKUP_ENABLED: 'simple-erp-auto-backup-enabled',
+  BACKUP_SETTINGS: 'simple-erp-backup-settings' // 새 추가
 } as const
 
 // localStorage 헬퍼
@@ -49,7 +90,55 @@ const setToStorage = <T>(key: string, value: T): void => {
 }
 
 /**
- * 모든 ERP 데이터를 수집하여 백업 데이터 객체 생성
+ * 백업 설정 관리
+ */
+export const getBackupSettings = (): BackupSettings => {
+  return getFromStorage(STORAGE_KEYS.BACKUP_SETTINGS, {
+    enabled: true,
+    backupPath: '' // 빈 값이면 미설정 상태
+  })
+}
+
+export const setBackupSettings = (settings: BackupSettings): void => {
+  setToStorage(STORAGE_KEYS.BACKUP_SETTINGS, settings)
+}
+
+/**
+ * Tauri 환경 체크 및 모듈 로드
+ */
+export const isTauriEnvironment = (): boolean => {
+  return typeof window !== 'undefined' && window.__TAURI_IPC__ !== undefined
+}
+
+/**
+ * 백업 폴더 선택 대화상자
+ */
+export const selectBackupFolder = async (): Promise<string | null> => {
+  if (!isTauriEnvironment()) {
+    alert('폴더 선택은 데스크톱 앱에서만 지원됩니다.')
+    return null
+  }
+
+  try {
+    await loadTauriAPIs()
+    if (!tauriDialog || !tauriPath) return null
+
+    const selected = await tauriDialog.open({
+      directory: true,
+      multiple: false,
+      defaultPath: await tauriPath.documentDir(),
+      title: 'Simple ERP 백업 폴더 선택'
+    })
+
+    return selected as string | null
+  } catch (error) {
+    console.error('폴더 선택 실패:', error)
+    return null
+  }
+}
+
+/**
+ * 모든 ERP 데이터를 수집하여 백업 데이터 객체 생성 (기존과 동일)
  */
 export const collectBackupData = (): BackupData => {
   const customers = getFromStorage<Customer[]>(STORAGE_KEYS.CUSTOMERS, [])
@@ -78,7 +167,7 @@ export const collectBackupData = (): BackupData => {
 }
 
 /**
- * 백업 파일명 생성 (YYYY-MM-DD 형식)
+ * 백업 파일명 생성 (기존과 동일)
  */
 export const generateBackupFileName = (): string => {
   const today = new Date().toISOString().split('T')[0]
@@ -86,16 +175,44 @@ export const generateBackupFileName = (): string => {
 }
 
 /**
- * 백업 데이터를 JSON 파일로 다운로드
+ * Tauri 환경에서 로컬 폴더에 백업 파일 저장
  */
-export const exportBackup = async (isAutoBackup: boolean = false): Promise<boolean> => {
+export const saveBackupToLocalFolder = async (data: BackupData, folderPath: string): Promise<boolean> => {
   try {
-    const backupData = collectBackupData()
-    const jsonString = JSON.stringify(backupData, null, 2)
+    await loadTauriAPIs()
+    if (!tauriFs || !tauriPath) return false
+
+    // 백업 폴더가 존재하는지 확인하고 없으면 생성
+    const backupFolderExists = await tauriFs.exists(folderPath)
+    if (!backupFolderExists) {
+      await tauriFs.createDir(folderPath, { recursive: true })
+    }
+
+    // 백업 파일 경로 생성
+    const fileName = generateBackupFileName()
+    const filePath = await tauriPath.join(folderPath, fileName)
+
+    // JSON 데이터를 파일로 저장
+    const jsonString = JSON.stringify(data, null, 2)
+    await tauriFs.writeTextFile(filePath, jsonString)
+
+    console.log(`💾 로컬 백업 저장 완료: ${filePath}`)
+    return true
+  } catch (error) {
+    console.error('로컬 백업 저장 실패:', error)
+    return false
+  }
+}
+
+/**
+ * 브라우저에서 백업 파일 다운로드 (기존 로직)
+ */
+export const downloadBackupFile = (data: BackupData): boolean => {
+  try {
+    const jsonString = JSON.stringify(data, null, 2)
     const blob = new Blob([jsonString], { type: 'application/json' })
     const url = URL.createObjectURL(blob)
     
-    // 파일 다운로드
     const a = document.createElement('a')
     a.href = url
     a.download = generateBackupFileName()
@@ -104,16 +221,50 @@ export const exportBackup = async (isAutoBackup: boolean = false): Promise<boole
     document.body.removeChild(a)
     URL.revokeObjectURL(url)
 
-    // 백업 날짜 업데이트
-    const today = new Date().toISOString().split('T')[0]
-    localStorage.setItem(STORAGE_KEYS.LAST_BACKUP_DATE, today)
-
-    console.log(`백업 완료: ${isAutoBackup ? '자동' : '수동'} 백업`, {
-      records: backupData.metadata.totalRecords,
-      date: backupData.metadata.backupDate
-    })
-
+    console.log('📥 브라우저 다운로드 완료')
     return true
+  } catch (error) {
+    console.error('브라우저 다운로드 실패:', error)
+    return false
+  }
+}
+
+/**
+ * 통합 백업 함수 - 환경별 분기 처리
+ */
+export const exportBackup = async (isAutoBackup: boolean = false): Promise<boolean> => {
+  try {
+    const backupData = collectBackupData()
+    let success = false
+
+    if (isTauriEnvironment()) {
+      // Tauri 환경: 설정된 로컬 폴더에 저장
+      const settings = getBackupSettings()
+      
+      if (settings.backupPath) {
+        success = await saveBackupToLocalFolder(backupData, settings.backupPath)
+      } else {
+        // 백업 폴더가 설정되지 않았으면 브라우저 다운로드로 fallback
+        success = downloadBackupFile(backupData)
+      }
+    } else {
+      // 브라우저 환경: 다운로드 폴더로 저장
+      success = downloadBackupFile(backupData)
+    }
+
+    if (success) {
+      // 백업 날짜 업데이트
+      const today = new Date().toISOString().split('T')[0]
+      localStorage.setItem(STORAGE_KEYS.LAST_BACKUP_DATE, today)
+
+      console.log(`✅ 백업 완료: ${isAutoBackup ? '자동' : '수동'} 백업`, {
+        environment: isTauriEnvironment() ? 'Tauri' : 'Browser',
+        records: backupData.metadata.totalRecords,
+        date: backupData.metadata.backupDate
+      })
+    }
+
+    return success
   } catch (error) {
     console.error('백업 실패:', error)
     return false
@@ -121,11 +272,101 @@ export const exportBackup = async (isAutoBackup: boolean = false): Promise<boole
 }
 
 /**
- * 백업 파일 유효성 검사
+ * 백업 폴더의 파일 목록 조회 (Tauri 전용)
+ */
+export const listBackupFiles = async (folderPath: string): Promise<BackupFileInfo[]> => {
+  if (!isTauriEnvironment()) return []
+
+  try {
+    await loadTauriAPIs()
+    if (!tauriFs || !tauriPath) return []
+
+    // 폴더 존재 여부 확인
+    const folderExists = await tauriFs.exists(folderPath)
+    if (!folderExists) return []
+
+    // 폴더 내 파일 목록 읽기
+    const entries = await tauriFs.readDir(folderPath)
+    const backupFiles: BackupFileInfo[] = []
+
+    for (const entry of entries) {
+      // JSON 파일이고 백업 파일명 패턴에 맞는지 체크
+      if (entry.name && entry.name.endsWith('.json') && entry.name.includes('simple-erp-backup-')) {
+        try {
+          const filePath = await tauriPath.join(folderPath, entry.name)
+          const metadata = await tauriFs.metadata(filePath)
+          
+          // 파일 내용에서 메타데이터 추출 (선택사항)
+          let totalRecords: number | undefined
+          try {
+            const fileContent = await tauriFs.readTextFile(filePath)
+            const backupData = JSON.parse(fileContent) as BackupData
+            totalRecords = backupData.metadata.totalRecords
+          } catch {
+            // 파일 읽기 실패 시 무시
+          }
+
+          backupFiles.push({
+            name: entry.name,
+            path: filePath,
+            size: metadata.size,
+            created: new Date(metadata.createdAt * 1000).toISOString(),
+            totalRecords
+          })
+        } catch (error) {
+          console.warn(`백업 파일 정보 읽기 실패: ${entry.name}`, error)
+        }
+      }
+    }
+
+    // 생성일 기준 최신순 정렬
+    return backupFiles.sort((a, b) => new Date(b.created).getTime() - new Date(a.created).getTime())
+  } catch (error) {
+    console.error('백업 파일 목록 조회 실패:', error)
+    return []
+  }
+}
+
+/**
+ * 특정 백업 파일 삭제 (Tauri 전용)
+ */
+export const deleteBackupFile = async (filePath: string): Promise<boolean> => {
+  if (!isTauriEnvironment()) return false
+
+  try {
+    await loadTauriAPIs()
+    if (!tauriFs) return false
+
+    await tauriFs.removeFile(filePath)
+    console.log(`🗑️ 백업 파일 삭제 완료: ${filePath}`)
+    return true
+  } catch (error) {
+    console.error('백업 파일 삭제 실패:', error)
+    return false
+  }
+}
+
+/**
+ * 탐색기에서 백업 폴더 열기 (Tauri 전용)
+ */
+export const openBackupFolderInExplorer = async (folderPath: string): Promise<boolean> => {
+  if (!isTauriEnvironment()) return false
+
+  try {
+    const { shell } = await import('@tauri-apps/api')
+    await shell.open(folderPath)
+    return true
+  } catch (error) {
+    console.error('폴더 열기 실패:', error)
+    return false
+  }
+}
+
+/**
+ * 백업 파일 유효성 검사 (기존과 동일)
  */
 export const validateBackupFile = (data: any): { isValid: boolean; error?: string } => {
   try {
-    // 필수 필드 체크
     if (!data || typeof data !== 'object') {
       return { isValid: false, error: '유효하지 않은 백업 파일 형식입니다.' }
     }
@@ -137,7 +378,6 @@ export const validateBackupFile = (data: any): { isValid: boolean; error?: strin
       }
     }
 
-    // 배열 타입 체크
     const arrayFields = ['customers', 'products', 'transactions', 'customerProductPrices']
     for (const field of arrayFields) {
       if (!Array.isArray(data[field])) {
@@ -145,7 +385,6 @@ export const validateBackupFile = (data: any): { isValid: boolean; error?: strin
       }
     }
 
-    // 메타데이터 체크
     if (!data.metadata || typeof data.metadata !== 'object') {
       return { isValid: false, error: '메타데이터가 유효하지 않습니다.' }
     }
@@ -161,7 +400,7 @@ export const validateBackupFile = (data: any): { isValid: boolean; error?: strin
 }
 
 /**
- * 백업 파일에서 데이터 복원
+ * 백업 파일에서 데이터 복원 (기존과 동일)
  */
 export const importBackup = async (file: File): Promise<{ success: boolean; error?: string; data?: BackupData }> => {
   return new Promise((resolve) => {
@@ -172,16 +411,13 @@ export const importBackup = async (file: File): Promise<{ success: boolean; erro
         const jsonString = e.target?.result as string
         const data = JSON.parse(jsonString)
 
-        // 유효성 검사
         const validation = validateBackupFile(data)
         if (!validation.isValid) {
           resolve({ success: false, error: validation.error })
           return
         }
 
-        // 백업 데이터 타입 캐스팅
         const backupData = data as BackupData
-
         resolve({ success: true, data: backupData })
       } catch (error) {
         resolve({ success: false, error: 'JSON 파싱 오류: 파일이 손상되었거나 형식이 올바르지 않습니다.' })
@@ -197,11 +433,10 @@ export const importBackup = async (file: File): Promise<{ success: boolean; erro
 }
 
 /**
- * localStorage에 백업 데이터 복원
+ * localStorage에 백업 데이터 복원 (기존과 동일)
  */
 export const restoreBackupData = (backupData: BackupData): void => {
   try {
-    // 각 데이터 타입별로 localStorage에 저장
     setToStorage(STORAGE_KEYS.CUSTOMERS, backupData.customers)
     setToStorage(STORAGE_KEYS.PRODUCTS, backupData.products)
     setToStorage(STORAGE_KEYS.TRANSACTIONS, backupData.transactions)
@@ -209,7 +444,7 @@ export const restoreBackupData = (backupData: BackupData): void => {
     setToStorage(STORAGE_KEYS.COMPANY, backupData.company)
     setToStorage(STORAGE_KEYS.NEXT_IDS, backupData.nextIds)
 
-    console.log('백업 데이터 복원 완료:', {
+    console.log('✅ 백업 데이터 복원 완료:', {
       customers: backupData.customers.length,
       products: backupData.products.length,
       transactions: backupData.transactions.length,
@@ -224,26 +459,20 @@ export const restoreBackupData = (backupData: BackupData): void => {
 }
 
 /**
- * 자동 백업 활성화 상태 관리
+ * 자동 백업 관련 함수들 (기존과 동일)
  */
 export const isAutoBackupEnabled = (): boolean => {
-  return getFromStorage(STORAGE_KEYS.AUTO_BACKUP_ENABLED, true) // 기본값: 활성화
+  return getFromStorage(STORAGE_KEYS.AUTO_BACKUP_ENABLED, true)
 }
 
 export const setAutoBackupEnabled = (enabled: boolean): void => {
   setToStorage(STORAGE_KEYS.AUTO_BACKUP_ENABLED, enabled)
 }
 
-/**
- * 마지막 백업 날짜 조회
- */
 export const getLastBackupDate = (): string | null => {
   return localStorage.getItem(STORAGE_KEYS.LAST_BACKUP_DATE)
 }
 
-/**
- * 오늘 백업이 필요한지 체크
- */
 export const shouldBackupToday = (): boolean => {
   if (!isAutoBackupEnabled()) return false
   
@@ -254,21 +483,14 @@ export const shouldBackupToday = (): boolean => {
 }
 
 /**
- * 백업 메타데이터 추출 (파일 내용 없이)
+ * 파일 크기를 읽기 쉬운 형태로 변환
  */
-export const getBackupMetadata = async (file: File): Promise<{ 
-  success: boolean
-  metadata?: BackupData['metadata']
-  error?: string 
-}> => {
-  try {
-    const result = await importBackup(file)
-    if (!result.success || !result.data) {
-      return { success: false, error: result.error }
-    }
-
-    return { success: true, metadata: result.data.metadata }
-  } catch (error) {
-    return { success: false, error: '메타데이터 추출 실패' }
-  }
+export const formatFileSize = (bytes: number): string => {
+  if (bytes === 0) return '0 B'
+  
+  const k = 1024
+  const sizes = ['B', 'KB', 'MB', 'GB']
+  const i = Math.floor(Math.log(bytes) / Math.log(k))
+  
+  return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i]
 }

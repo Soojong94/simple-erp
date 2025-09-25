@@ -1,0 +1,50 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>백업 시스템 테스트</title>
+</head>
+<body>
+    <h1>백업 시스템 테스트</h1>
+    <div id="test-results"></div>
+    
+    <script type="module">
+        // 간단한 백업 시스템 테스트
+        console.log('🧪 백업 시스템 테스트 시작');
+        
+        // localStorage에 테스트 데이터 추가
+        const testData = {
+            customers: [
+                { id: 1, name: '테스트 고객', type: 'customer', created_at: new Date().toISOString() }
+            ],
+            products: [
+                { id: 1, name: '테스트 상품', category: '돼지고기', is_active: true, created_at: new Date().toISOString() }
+            ],
+            transactions: [
+                { id: 1, customer_id: 1, customer_name: '테스트 고객', transaction_type: 'sales', total_amount: 100000, created_at: new Date().toISOString(), items: [] }
+            ]
+        };
+        
+        // localStorage에 테스트 데이터 저장
+        localStorage.setItem('simple-erp-customers', JSON.stringify(testData.customers));
+        localStorage.setItem('simple-erp-products', JSON.stringify(testData.products));
+        localStorage.setItem('simple-erp-transactions', JSON.stringify(testData.transactions));
+        localStorage.setItem('simple-erp-customer-product-prices', JSON.stringify([]));
+        localStorage.setItem('simple-erp-next-ids', JSON.stringify({ customer: 2, product: 2, transaction: 2 }));
+        
+        console.log('✅ 테스트 데이터 저장 완료');
+        
+        // 결과 표시
+        document.getElementById('test-results').innerHTML = `
+            <h2>테스트 데이터 생성 완료</h2>
+            <ul>
+                <li>고객: ${testData.customers.length}개</li>
+                <li>상품: ${testData.products.length}개</li>
+                <li>거래: ${testData.transactions.length}개</li>
+            </ul>
+            <p>이제 개발 서버에서 설정 페이지의 백업 기능을 테스트하세요.</p>
+        `;
+    </script>
+</body>
+</html>
