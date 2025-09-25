@@ -19,13 +19,13 @@ export const useChartData = ({ transactions, products }: UseChartDataParams) => 
       const monthEnd = endOfMonth(date)
       
       const monthlySales = transactions.filter(t => {
-        if (!t.transaction_date || t.transaction_type !== 'sales' || t.status !== 'confirmed') return false
+        if (!t.transaction_date || t.transaction_type !== 'sales') return false
         const transactionDate = new Date(t.transaction_date)
         return transactionDate >= monthStart && transactionDate <= monthEnd
       }).reduce((sum, t) => sum + t.total_amount, 0)
 
       const monthlyPurchases = transactions.filter(t => {
-        if (!t.transaction_date || t.transaction_type !== 'purchase' || t.status !== 'confirmed') return false
+        if (!t.transaction_date || t.transaction_type !== 'purchase') return false
         const transactionDate = new Date(t.transaction_date)
         return transactionDate >= monthStart && transactionDate <= monthEnd
       }).reduce((sum, t) => sum + t.total_amount, 0)
@@ -46,7 +46,7 @@ export const useChartData = ({ transactions, products }: UseChartDataParams) => 
     
     const customerSales: { [key: string]: number } = {}
     
-    transactions.filter(t => t.transaction_type === 'sales' && t.status === 'confirmed')
+    transactions.filter(t => t.transaction_type === 'sales')
       .forEach(t => {
         const customerName = t.customer_name || '미지정'
         customerSales[customerName] = (customerSales[customerName] || 0) + t.total_amount
@@ -71,7 +71,7 @@ export const useChartData = ({ transactions, products }: UseChartDataParams) => 
     
     const categorySales: { [key: string]: number } = {}
     
-    transactions.filter(t => t.transaction_type === 'sales' && t.status === 'confirmed')
+    transactions.filter(t => t.transaction_type === 'sales')
       .forEach(t => {
         t.items?.forEach(item => {
           const product = products.find(p => p.name === item.product_name)
@@ -100,8 +100,7 @@ export const useChartData = ({ transactions, products }: UseChartDataParams) => 
       const now = new Date()
       return transactionDate.getMonth() === now.getMonth() &&
              transactionDate.getFullYear() === now.getFullYear() &&
-             t.transaction_type === 'sales' &&
-             t.status === 'confirmed'
+             t.transaction_type === 'sales'
     }).reduce((sum, t) => sum + t.total_amount, 0)
   }, [transactions])
 

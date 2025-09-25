@@ -2,7 +2,9 @@ import { useState, useMemo } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { productAPI, transactionAPI } from '../lib/tauri'
 import { formatCurrency } from '../lib/utils'
+import { useExpandableTable } from '../hooks/useExpandableTable'
 import ProductModal from '../components/modals/ProductModal'
+import ProductExpandableRow from '../components/expandable/ProductExpandableRow'
 import type { Product } from '../types'
 
 export default function Products() {
@@ -24,6 +26,9 @@ export default function Products() {
   })
   
   const [showAdvancedSearch, setShowAdvancedSearch] = useState(false)
+
+  // 확장 테이블 관리
+  const { toggleRow, isExpanded } = useExpandableTable()
 
   const { data: products, isLoading, error } = useQuery({
     queryKey: ['products'],
@@ -172,7 +177,7 @@ export default function Products() {
           <div className="sm:flex-auto">
             <h1 className="text-2xl font-semibold text-gray-900">상품 관리</h1>
             <p className="mt-2 text-sm text-gray-700">
-              판매 및 구매하는 상품 정보를 관리합니다.
+              판매 및 구매하는 상품 정보를 관리합니다. 행을 클릭하면 상세 정보를 볼 수 있습니다.
             </p>
           </div>
           <div className="mt-4 sm:mt-0 sm:ml-16 sm:flex-none">
@@ -211,159 +216,7 @@ export default function Products() {
               ))}
             </select>
           </div>
-          <div className="flex-shrink-0">
-            <select
-              value={`${advancedFilters.sortBy}-${advancedFilters.sortOrder}`}
-              onChange={(e) => {
-                const [sortBy, sortOrder] = e.target.value.split('-') as ['name' | 'usage' | 'price' | 'recent', 'asc' | 'desc']
-                setAdvancedFilters(prev => ({ ...prev, sortBy, sortOrder }))
-              }}
-              className="block w-full px-3 py-2 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500"
-            >
-              <option value="name-asc">이름 순</option>
-              <option value="name-desc">이름 역순</option>
-              <option value="usage-desc">많이 사용된 순</option>
-              <option value="usage-asc">적게 사용된 순</option>
-              <option value="price-asc">가격 낮은 순</option>
-              <option value="price-desc">가격 높은 순</option>
-              <option value="recent-desc">최근 사용순</option>
-            </select>
-          </div>
-          <div className="flex-shrink-0">
-            <button
-              type="button"
-              onClick={() => setShowAdvancedSearch(!showAdvancedSearch)}
-              className={`px-4 py-2 text-sm font-medium rounded-md border transition-colors ${
-                showAdvancedSearch 
-                  ? 'bg-blue-600 text-white border-blue-600' 
-                  : 'bg-white text-gray-700 border-gray-300 hover:bg-gray-50'
-              }`}
-            >
-              고급 검색
-            </button>
-          </div>
         </div>
-        
-        {/* 고급 검색 영역 */}
-        {showAdvancedSearch && (
-          <div className="mt-4 pt-4 border-t border-gray-200">
-            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
-              {/* 가격 범위 */}
-              <div>
-                <label className="block text-xs font-medium text-gray-700 mb-1">
-                  최소 가격
-                </label>
-                <input
-                  type="number"
-                  value={advancedFilters.priceFrom}
-                  onChange={(e) => setAdvancedFilters(prev => ({ ...prev, priceFrom: e.target.value }))}
-                  placeholder="0"
-                  className="block w-full px-3 py-2 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500"
-                />
-              </div>
-              
-              <div>
-                <label className="block text-xs font-medium text-gray-700 mb-1">
-                  최대 가격
-                </label>
-                <input
-                  type="number"
-                  value={advancedFilters.priceTo}
-                  onChange={(e) => setAdvancedFilters(prev => ({ ...prev, priceTo: e.target.value }))}
-                  placeholder="무제한"
-                  className="block w-full px-3 py-2 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500"
-                />
-              </div>
-              
-              {/* 활성 상태 필터 */}
-              <div>
-                <label className="block text-xs font-medium text-gray-700 mb-1">
-                  상품 상태
-                </label>
-                <select
-                  value={advancedFilters.activeOnly ? 'active' : 'all'}
-                  onChange={(e) => setAdvancedFilters(prev => ({ ...prev, activeOnly: e.target.value === 'active' }))}
-                  className="block w-full px-3 py-2 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500"
-                >
-                  <option value="all">전체 상품</option>
-                  <option value="active">활성 상품만</option>
-                </select>
-              </div>
-            </div>
-            
-            {/* 필터 초기화 버튼 */}
-            <div className="mt-3 flex justify-end">
-              <button
-                type="button"
-                onClick={() => {
-                  setAdvancedFilters({
-                    priceFrom: '',
-                    priceTo: '',
-                    activeOnly: true,
-                    sortBy: 'name',
-                    sortOrder: 'asc'
-                  })
-                  setFilterCategory('all')
-                  setSearchQuery('')
-                }}
-                className="px-3 py-1 text-sm text-gray-600 hover:text-gray-800 border border-gray-300 rounded hover:bg-gray-50"
-              >
-                필터 초기화
-              </button>
-            </div>
-          </div>
-        )}
-        
-        {/* 활성 필터 표시 */}
-        {(advancedFilters.priceFrom || advancedFilters.priceTo || !advancedFilters.activeOnly || searchQuery) && (
-          <div className="mt-3 flex flex-wrap gap-2">
-            <span className="text-xs text-gray-500">활성 필터:</span>
-            {searchQuery && (
-              <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-yellow-100 text-yellow-800">
-                검색: {searchQuery}
-                <button 
-                  onClick={() => setSearchQuery('')}
-                  className="ml-1 text-yellow-600 hover:text-yellow-800"
-                >
-                  ×
-                </button>
-              </span>
-            )}
-            {advancedFilters.priceFrom && (
-              <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
-                최소가격: {formatCurrency(Number(advancedFilters.priceFrom))}
-                <button 
-                  onClick={() => setAdvancedFilters(prev => ({ ...prev, priceFrom: '' }))}
-                  className="ml-1 text-blue-600 hover:text-blue-800"
-                >
-                  ×
-                </button>
-              </span>
-            )}
-            {advancedFilters.priceTo && (
-              <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
-                최대가격: {formatCurrency(Number(advancedFilters.priceTo))}
-                <button 
-                  onClick={() => setAdvancedFilters(prev => ({ ...prev, priceTo: '' }))}
-                  className="ml-1 text-blue-600 hover:text-blue-800"
-                >
-                  ×
-                </button>
-              </span>
-            )}
-            {!advancedFilters.activeOnly && (
-              <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-gray-100 text-gray-800">
-                비활성 상품 포함
-                <button 
-                  onClick={() => setAdvancedFilters(prev => ({ ...prev, activeOnly: true }))}
-                  className="ml-1 text-gray-600 hover:text-gray-800"
-                >
-                  ×
-                </button>
-              </span>
-            )}
-          </div>
-        )}
       </div>
 
       {/* 통계 카드 */}
@@ -460,6 +313,7 @@ export default function Products() {
         </div>
       </div>
 
+      {/* 확장형 테이블 */}
       <div className="mt-8 flow-root">
         <div className="-mx-4 -my-2 overflow-x-auto sm:-mx-6 lg:-mx-8">
           <div className="inline-block min-w-full py-2 align-middle sm:px-6 lg:px-8">
@@ -477,10 +331,13 @@ export default function Products() {
                       카테고리
                     </th>
                     <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wide">
+                      단위
+                    </th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wide">
                       참고단가
                     </th>
                     <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wide">
-                      사용횟수
+                      설명
                     </th>
                     <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wide">
                       상태
@@ -493,7 +350,7 @@ export default function Products() {
                 <tbody className="bg-white divide-y divide-gray-200">
                   {isLoading ? (
                     <tr>
-                      <td colSpan={7} className="px-6 py-4 text-sm text-gray-500 text-center">
+                      <td colSpan={8} className="px-6 py-4 text-sm text-gray-500 text-center">
                         <div className="flex justify-center items-center">
                           <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-blue-600"></div>
                           <span className="ml-2">로딩 중...</span>
@@ -502,7 +359,7 @@ export default function Products() {
                     </tr>
                   ) : !filteredAndSortedProducts || filteredAndSortedProducts.length === 0 ? (
                     <tr>
-                      <td colSpan={7} className="px-6 py-4 text-sm text-gray-500 text-center">
+                      <td colSpan={8} className="px-6 py-4 text-sm text-gray-500 text-center">
                         {products?.length === 0 ? (
                           <div>
                             <p className="text-gray-900 font-medium">등록된 상품이 없습니다.</p>
@@ -514,68 +371,16 @@ export default function Products() {
                       </td>
                     </tr>
                   ) : (
-                    filteredAndSortedProducts.map((product: Product) => {
-                      const usage = productUsageStats.get(product.id || 0)
-                      return (
-                        <tr key={product.id} className="hover:bg-gray-50">
-                          <td className="px-6 py-4 whitespace-nowrap">
-                            <div className="text-sm font-medium text-gray-900">
-                              {product.name}
-                            </div>
-                            {product.description && (
-                              <div className="text-sm text-gray-500">
-                                {product.description}
-                              </div>
-                            )}
-                          </td>
-                          <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 font-mono">
-                            {product.code || '-'}
-                          </td>
-                          <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                            <span className="inline-flex px-2 py-1 text-xs font-semibold rounded-full bg-gray-100 text-gray-800">
-                              {product.category || '-'}
-                            </span>
-                          </td>
-                          <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900 font-medium">
-                            {product.unit_price ? formatCurrency(product.unit_price) : '-'}
-                          </td>
-                          <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                            <div>
-                              <span className="font-medium">{usage?.count || 0}회</span>
-                              {usage?.lastUsed && (
-                                <div className="text-xs text-gray-400">
-                                  최근: {new Date(usage.lastUsed).toLocaleDateString('ko-KR')}
-                                </div>
-                              )}
-                            </div>
-                          </td>
-                          <td className="px-6 py-4 whitespace-nowrap">
-                            <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${
-                              product.is_active 
-                                ? 'bg-green-100 text-green-800' 
-                                : 'bg-red-100 text-red-800'
-                            }`}>
-                              {product.is_active ? '활성' : '비활성'}
-                            </span>
-                          </td>
-                          <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
-                            <button 
-                              onClick={() => handleEditProduct(product)}
-                              className="text-blue-600 hover:text-blue-900 mr-3"
-                            >
-                              수정
-                            </button>
-                            <button 
-                              onClick={() => handleDeleteProduct(product.id!, product.name)}
-                              disabled={deleteMutation.isPending}
-                              className="text-red-600 hover:text-red-900"
-                            >
-                              삭제
-                            </button>
-                          </td>
-                        </tr>
-                      )
-                    })
+                    filteredAndSortedProducts.map((product: Product) => (
+                      <ProductExpandableRow
+                        key={product.id}
+                        product={product}
+                        isExpanded={isExpanded(product.id!)}
+                        onToggle={() => toggleRow(product.id!)}
+                        onEdit={() => handleEditProduct(product)}
+                        onDelete={() => handleDeleteProduct(product.id!, product.name)}
+                      />
+                    ))
                   )}
                 </tbody>
               </table>
@@ -724,22 +529,10 @@ export default function Products() {
             
             <button
               onClick={() => {
-                setAdvancedFilters(prev => ({ ...prev, sortBy: 'usage', sortOrder: 'desc' }))
                 setFilterCategory('all')
                 setSearchQuery('')
               }}
-              className="mt-2 w-full px-3 py-2 text-xs bg-green-100 text-green-700 rounded-md hover:bg-green-200 transition-colors"
-            >
-              🔥 인기 상품 순
-            </button>
-            
-            <button
-              onClick={() => {
-                setAdvancedFilters(prev => ({ ...prev, sortBy: 'name', sortOrder: 'asc' }))
-                setFilterCategory('all')
-                setSearchQuery('')
-              }}
-              className="mt-1 w-full px-3 py-2 text-xs bg-gray-100 text-gray-700 rounded-md hover:bg-gray-200 transition-colors"
+              className="mt-2 w-full px-3 py-2 text-xs bg-gray-100 text-gray-700 rounded-md hover:bg-gray-200 transition-colors"
             >
               🔄 전체 보기
             </button>

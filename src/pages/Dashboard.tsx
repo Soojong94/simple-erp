@@ -186,13 +186,8 @@ export default function Dashboard() {
                         <div className="text-sm font-medium text-gray-900">
                           {formatCurrency(transaction.total_amount)}
                         </div>
-                        <div className={`text-xs ${
-                          transaction.status === 'confirmed' ? 'text-green-600' :
-                          transaction.status === 'draft' ? 'text-yellow-600' :
-                          'text-red-600'
-                        }`}>
-                          {transaction.status === 'confirmed' ? '확정' :
-                           transaction.status === 'draft' ? '임시저장' : '취소'}
+                        <div className="text-xs text-gray-500">
+                          {transaction.items?.length || 0}개 상품
                         </div>
                       </div>
                     </div>

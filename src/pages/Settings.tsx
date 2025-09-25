@@ -29,7 +29,10 @@ import CustomerCSVManager from '../components/csv/CustomerCSVManager'
 import ProductCSVManager from '../components/csv/ProductCSVManager'
 import TransactionCSVExporter from '../components/csv/TransactionCSVExporter'
 
-type TabType = 'company' | 'backup' | 'csv' | 'system'
+// 테스트 데이터 생성
+import { generateTestData, clearAllData } from '../lib/testData'
+
+type TabType = 'company' | 'backup' | 'csv' | 'system' | 'dev'
 
 export default function Settings() {
   const fileInputRef = useRef<HTMLInputElement>(null)
@@ -254,6 +257,40 @@ export default function Settings() {
     }
   }
 
+  // 테스트 데이터 생성 상태
+  const [isGeneratingData, setIsGeneratingData] = useState(false)
+  const [isClearingData, setIsClearingData] = useState(false)
+
+  // 테스트 데이터 생성
+  const handleGenerateTestData = async () => {
+    setIsGeneratingData(true)
+    try {
+      const result = await generateTestData()
+      showMessage(
+        `테스트 데이터 생성 완료! 거래처: ${result.customers}개, 상품: ${result.products}개, 거래: ${result.transactions}개`,
+        'success'
+      )
+    } catch (error) {
+      console.error('테스트 데이터 생성 실패:', error)
+      showMessage('테스트 데이터 생성 중 오류가 발생했습니다.', 'error')
+    } finally {
+      setIsGeneratingData(false)
+    }
+  }
+
+  // 데이터 전체 삭제
+  const handleClearAllData = async () => {
+    setIsClearingData(true)
+    try {
+      await clearAllData()
+    } catch (error) {
+      console.error('데이터 삭제 실패:', error)
+      showMessage('데이터 삭제 중 오류가 발생했습니다.', 'error')
+    } finally {
+      setIsClearingData(false)
+    }
+  }
+
   // 백업 폴더 열기
   const handleOpenBackupFolder = async () => {
     if (!backupStatus.settings.backupPath) return
@@ -274,7 +311,8 @@ export default function Settings() {
     { id: 'company' as TabType, name: '회사 정보', icon: '🏢' },
     { id: 'backup' as TabType, name: '백업 관리', icon: '💾' },
     { id: 'csv' as TabType, name: 'CSV 관리', icon: '📊' },
-    { id: 'system' as TabType, name: '시스템 정보', icon: '⚙️' }
+    { id: 'system' as TabType, name: '시스템 정보', icon: '⚙️' },
+    ...(import.meta.env.DEV ? [{ id: 'dev' as TabType, name: '개발자 도구', icon: '🛠️' }] : [])
   ]
 
   if (error) {

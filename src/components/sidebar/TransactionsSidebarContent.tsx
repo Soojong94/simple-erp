@@ -1,131 +1,181 @@
-import { formatCurrency } from '../../lib/utils'
+import { useState, useMemo } from 'react'
 import PageSidebar, { 
   SidebarSection, 
-  SidebarCard, 
-  QuickActionButtons, 
-  QuickActionButton,
+  SidebarCard,
   SidebarEmptyState 
 } from './PageSidebar'
-import type { Customer, Product } from '../../types'
+import type { Customer } from '../../types'
 
 interface TransactionsSidebarContentProps {
   customers?: Customer[]
-  products?: Product[]
   onCustomerClick: (customerId: number) => void
-  onProductClick: (productName: string) => void
-  onQuickFilter: (filterType: 'today' | 'confirmed-sales' | 'confirmed-purchase' | 'draft') => void
-  onResetFilters: () => void
+  onAddTransactionWithCustomer: (customerId: number) => void
+  onFilterChange: (filters: {
+    searchTerm: string
+    customerFilter: 'all' | 'customer' | 'supplier'
+    transactionTypeFilter: 'all' | 'sales' | 'purchase'
+  }) => void
 }
 
 export default function TransactionsSidebarContent({
   customers,
-  products,
   onCustomerClick,
-  onProductClick,
-  onQuickFilter,
-  onResetFilters
+  onAddTransactionWithCustomer,
+  onFilterChange
 }: TransactionsSidebarContentProps) {
+  const [searchTerm, setSearchTerm] = useState('')
+  const [customerFilter, setCustomerFilter] = useState<'all' | 'customer' | 'supplier'>('all')
+  const [transactionTypeFilter, setTransactionTypeFilter] = useState<'all' | 'sales' | 'purchase'>('all')
+
+  // 필터링된 거래처 목록
+  const filteredCustomers = useMemo(() => {
+    if (!customers) return []
+
+    return customers.filter(customer => {
+      // 검색어 필터링
+      const matchesSearch = searchTerm === '' || 
+        customer.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        customer.business_number?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        customer.contact_person?.toLowerCase().includes(searchTerm.toLowerCase())
+
+      // 거래처 타입 필터링
+      const matchesCustomerFilter = customerFilter === 'all' || customer.type === customerFilter
+
+      // 거래 목적별 스마트 필터링
+      let matchesTransactionType = true
+      if (transactionTypeFilter === 'sales') {
+        // 매출 거래 → 고객만
+        matchesTransactionType = customer.type === 'customer'
+      } else if (transactionTypeFilter === 'purchase') {
+        // 매입 거래 → 공급업체만  
+        matchesTransactionType = customer.type === 'supplier'
+      }
+
+      return matchesSearch && matchesCustomerFilter && matchesTransactionType
+    }).sort((a, b) => a.name.localeCompare(b.name))
+  }, [customers, searchTerm, customerFilter, transactionTypeFilter])
+
+  // 필터 변경 시 부모에게 알림
+  const handleFilterChange = (newFilters: Partial<typeof transactionTypeFilter>) => {
+    const filters = {
+      searchTerm,
+      customerFilter,
+      transactionTypeFilter,
+      ...newFilters
+    }
+    
+    onFilterChange(filters)
+  }
+
+  const handleSearchChange = (value: string) => {
+    setSearchTerm(value)
+    handleFilterChange({ searchTerm: value } as any)
+  }
+
+  const handleCustomerFilterChange = (value: typeof customerFilter) => {
+    setCustomerFilter(value)
+    handleFilterChange({ customerFilter: value } as any)
+  }
+
+  const handleTransactionTypeFilterChange = (value: typeof transactionTypeFilter) => {
+    setTransactionTypeFilter(value)
+    handleFilterChange({ transactionTypeFilter: value } as any)
+  }
+
   return (
     <>
-      {/* 최근 거래처 */}
-      <SidebarSection title="📋 최근 거래처">
-        {customers && customers.length > 0 ? (
-          <div className="space-y-2">
-            {customers
-              .sort((a, b) => a.name.localeCompare(b.name))
-              .slice(0, 8)
-              .map(customer => (
-                <SidebarCard
-                  key={customer.id}
-                  onClick={() => onCustomerClick(customer.id!)}
-                  icon={customer.type === 'customer' ? '🛒' : '🏭'}
-                  title={customer.name}
-                  badge={{
-                    text: customer.type === 'customer' ? '고객' : '공급업체',
-                    className: customer.type === 'customer' 
-                      ? 'bg-green-100 text-green-800' 
-                      : 'bg-blue-100 text-blue-800'
-                  }}
-                  subtitle={customer.phone?.slice(-4)}
-                />
-              ))
-            }
+      <SidebarSection title="🏢 전체 거래처">
+        {/* 검색 및 필터 컨트롤 */}
+        <div className="space-y-3 mb-4">
+          {/* 검색창 */}
+          <div className="relative">
+            <input
+              type="text"
+              placeholder="거래처 검색..."
+              value={searchTerm}
+              onChange={(e) => handleSearchChange(e.target.value)}
+              className="w-full px-3 py-2 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+            />
+            <div className="absolute right-3 top-2.5 text-gray-400">🔍</div>
+          </div>
+
+          {/* 거래 목적 필터 */}
+          <select
+            value={transactionTypeFilter}
+            onChange={(e) => handleTransactionTypeFilterChange(e.target.value as typeof transactionTypeFilter)}
+            className="w-full px-3 py-2 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+          >
+            <option value="all">🔄 전체 거래처</option>
+            <option value="sales">💰 매출용 (고객)</option>
+            <option value="purchase">📦 매입용 (공급업체)</option>
+          </select>
+
+          {/* 거래처 타입 필터 (추가 옵션) */}
+          {transactionTypeFilter === 'all' && (
+            <select
+              value={customerFilter}
+              onChange={(e) => handleCustomerFilterChange(e.target.value as typeof customerFilter)}
+              className="w-full px-3 py-2 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-gray-50"
+            >
+              <option value="all">📋 모든 타입</option>
+              <option value="customer">🛒 고객만</option>
+              <option value="supplier">🏭 공급업체만</option>
+            </select>
+          )}
+        </div>
+
+        {/* 필터링 결과 정보 */}
+        <div className="flex justify-between items-center mb-3 text-xs text-gray-500">
+          <span>총 {filteredCustomers.length}개 거래처</span>
+          {searchTerm && (
+            <button 
+              onClick={() => handleSearchChange('')}
+              className="text-blue-600 hover:text-blue-800"
+            >
+              검색 초기화
+            </button>
+          )}
+        </div>
+
+        {/* 거래처 목록 (스크롤 가능) */}
+        {filteredCustomers.length > 0 ? (
+          <div className="max-h-96 overflow-y-auto space-y-2 pr-2">
+            {filteredCustomers.map(customer => (
+              <SidebarCard
+                key={customer.id}
+                onClick={() => onCustomerClick(customer.id!)}
+                icon={customer.type === 'customer' ? '🛒' : '🏭'}
+                title={customer.name}
+                badge={{
+                  text: customer.type === 'customer' ? '고객' : '공급업체',
+                  className: customer.type === 'customer' 
+                    ? 'bg-green-100 text-green-800' 
+                    : 'bg-blue-100 text-blue-800'
+                }}
+                subtitle={customer.phone ? customer.phone.slice(-4) : customer.business_number?.slice(-4)}
+                extra={customer.contact_person}
+                action={
+                  <button
+                    onClick={(e) => {
+                      e.stopPropagation()
+                      onAddTransactionWithCustomer(customer.id!)
+                    }}
+                    className="px-2 py-1 text-xs bg-blue-100 text-blue-700 rounded hover:bg-blue-200 transition-colors"
+                    title="이 거래처로 바로 거래 추가"
+                  >
+                    ✚ 거래
+                  </button>
+                }
+              />
+            ))}
           </div>
         ) : (
-          <SidebarEmptyState icon="📝" message="거래처가 없습니다" />
+          <SidebarEmptyState 
+            icon="🔍" 
+            message={searchTerm ? "검색 결과가 없습니다" : "거래처가 없습니다"} 
+          />
         )}
       </SidebarSection>
-
-      {/* 인기 상품 */}
-      <SidebarSection title="🔥 인기 상품">
-        {products && products.length > 0 ? (
-          <div className="space-y-2">
-            {products
-              .filter(p => p.is_active)
-              .sort((a, b) => a.name.localeCompare(b.name))
-              .slice(0, 6)
-              .map(product => (
-                <SidebarCard
-                  key={product.id}
-                  onClick={() => onProductClick(product.name)}
-                  icon={
-                    product.category === '돼지고기' ? '🐷' :
-                    product.category === '소고기' ? '🐄' :
-                    product.category === '닭고기' ? '🐔' :
-                    product.category === '오리고기' ? '🦆' : '🍖'
-                  }
-                  title={product.name}
-                  badge={{
-                    text: product.category,
-                    className: 'bg-gray-100 text-gray-800'
-                  }}
-                  extra={product.unit_price ? formatCurrency(product.unit_price) : undefined}
-                />
-              ))
-            }
-          </div>
-        ) : (
-          <SidebarEmptyState icon="📝" message="상품이 없습니다" />
-        )}
-      </SidebarSection>
-
-      {/* 빠른 액션 버튼들 */}
-      <QuickActionButtons>
-        <QuickActionButton
-          onClick={() => onQuickFilter('today')}
-          className="bg-blue-100 text-blue-700 hover:bg-blue-200"
-        >
-          📅 오늘 거래
-        </QuickActionButton>
-        
-        <QuickActionButton
-          onClick={() => onQuickFilter('confirmed-sales')}
-          className="bg-green-100 text-green-700 hover:bg-green-200"
-        >
-          💰 확정 매출
-        </QuickActionButton>
-        
-        <QuickActionButton
-          onClick={() => onQuickFilter('confirmed-purchase')}
-          className="bg-yellow-100 text-yellow-700 hover:bg-yellow-200"
-        >
-          📦 확정 매입
-        </QuickActionButton>
-        
-        <QuickActionButton
-          onClick={() => onQuickFilter('draft')}
-          className="bg-orange-100 text-orange-700 hover:bg-orange-200"
-        >
-          ✏️ 임시저장
-        </QuickActionButton>
-
-        <QuickActionButton
-          onClick={onResetFilters}
-          className="mt-2 bg-gray-100 text-gray-700 hover:bg-gray-200"
-        >
-          🔄 전체 보기
-        </QuickActionButton>
-      </QuickActionButtons>
     </>
   )
 }

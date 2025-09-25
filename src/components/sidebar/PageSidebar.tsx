@@ -63,7 +63,8 @@ export function SidebarCard({
   title, 
   subtitle, 
   badge, 
-  extra 
+  extra,
+  action 
 }: {
   onClick?: () => void
   icon: string
@@ -71,6 +72,7 @@ export function SidebarCard({
   subtitle?: string
   badge?: { text: string; className: string }
   extra?: string
+  action?: ReactNode
 }) {
   return (
     <div 
@@ -82,20 +84,29 @@ export function SidebarCard({
       <div className="flex items-center space-x-2">
         <span className="text-sm">{icon}</span>
         <div className="flex-1 min-w-0">
-          <p className="text-sm font-medium text-gray-900 truncate">
-            {title}
-          </p>
           <div className="flex items-center justify-between">
-            {badge && (
-              <span className={`inline-flex px-1.5 py-0.5 rounded text-xs font-medium ${badge.className}`}>
-                {badge.text}
-              </span>
+            <p className="text-sm font-medium text-gray-900 truncate">
+              {title}
+            </p>
+            {action && (
+              <div className="ml-2 flex-shrink-0">
+                {action}
+              </div>
             )}
-            {subtitle && (
-              <span className="text-xs text-gray-500 truncate ml-1">
-                {subtitle}
-              </span>
-            )}
+          </div>
+          <div className="flex items-center justify-between mt-1">
+            <div className="flex items-center space-x-1">
+              {badge && (
+                <span className={`inline-flex px-1.5 py-0.5 rounded text-xs font-medium ${badge.className}`}>
+                  {badge.text}
+                </span>
+              )}
+              {subtitle && (
+                <span className="text-xs text-gray-500 truncate">
+                  {subtitle}
+                </span>
+              )}
+            </div>
             {extra && (
               <span className="text-xs text-green-600 font-medium">
                 {extra}
@@ -111,9 +122,9 @@ export function SidebarCard({
 // 빈 상태 표시
 export function SidebarEmptyState({ icon, message }: { icon: string; message: string }) {
   return (
-    <div className="text-center py-4 text-gray-500">
-      <div className="text-2xl mb-1">{icon}</div>
-      <p className="text-xs">{message}</p>
+    <div className="text-center py-6 text-gray-500">
+      <div className="text-2xl mb-2">{icon}</div>
+      <p className="text-sm">{message}</p>
     </div>
   )
 }

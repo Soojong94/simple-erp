@@ -373,7 +373,6 @@ export const transactionAPI = {
         due_date: transactionData.due_date,
         total_amount: transactionData.total_amount || 0,
         tax_amount: transactionData.tax_amount || 0,
-        status: 'draft',
         notes: transactionData.notes || '',
         created_at: new Date().toISOString(),
         items: transactionData.items || []
@@ -415,44 +414,14 @@ export const transactionAPI = {
     }
   },
   
-  confirm: async (id: number) => {
-    if (isTauri()) {
-      return invoke<TransactionWithItems>('confirm_transaction', { id })
-    } else {
-      await delay(300)
-      const transactions = getFromStorage<TransactionWithItems[]>(STORAGE_KEYS.TRANSACTIONS, [])
-      const index = transactions.findIndex(t => t.id === id)
-      if (index === -1) throw new Error('Transaction not found')
-      transactions[index].status = 'confirmed'
-      setToStorage(STORAGE_KEYS.TRANSACTIONS, transactions)
-      backupTrigger.trigger() // 자동 백업 트리거
-      return transactions[index]
-    }
-  },
-  
-  cancel: async (id: number) => {
-    if (isTauri()) {
-      return invoke<TransactionWithItems>('cancel_transaction', { id })
-    } else {
-      await delay(300)
-      const transactions = getFromStorage<TransactionWithItems[]>(STORAGE_KEYS.TRANSACTIONS, [])
-      const index = transactions.findIndex(t => t.id === id)
-      if (index === -1) throw new Error('Transaction not found')
-      transactions[index].status = 'cancelled'
-      setToStorage(STORAGE_KEYS.TRANSACTIONS, transactions)
-      backupTrigger.trigger() // 자동 백업 트리거
-      return transactions[index]
-    }
-  },
-  
   getSummary: async (startDate?: string, endDate?: string) => {
     if (isTauri()) {
       return invoke<any>('get_transaction_summary', { start_date: startDate, end_date: endDate })
     } else {
       await delay(300)
       const transactions = getFromStorage<TransactionWithItems[]>(STORAGE_KEYS.TRANSACTIONS, [])
-      const salesTransactions = transactions.filter(t => t.transaction_type === 'sales' && t.status === 'confirmed')
-      const purchaseTransactions = transactions.filter(t => t.transaction_type === 'purchase' && t.status === 'confirmed')
+      const salesTransactions = transactions.filter(t => t.transaction_type === 'sales')
+      const purchaseTransactions = transactions.filter(t => t.transaction_type === 'purchase')
       
       return {
         total_sales: salesTransactions.reduce((sum, t) => sum + t.total_amount, 0),
@@ -614,7 +583,6 @@ export const reportAPI = {
       const transactions = getFromStorage<TransactionWithItems[]>(STORAGE_KEYS.TRANSACTIONS, [])
       const salesTransactions = transactions.filter(t => 
         t.transaction_type === 'sales' && 
-        t.status === 'confirmed' &&
         t.transaction_date >= startDate && 
         t.transaction_date <= endDate
       )
@@ -644,7 +612,6 @@ export const reportAPI = {
       const transactions = getFromStorage<TransactionWithItems[]>(STORAGE_KEYS.TRANSACTIONS, [])
       const purchaseTransactions = transactions.filter(t => 
         t.transaction_type === 'purchase' && 
-        t.status === 'confirmed' &&
         t.transaction_date >= startDate && 
         t.transaction_date <= endDate
       )
