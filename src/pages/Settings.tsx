@@ -1,4 +1,4 @@
-import { useQuery } from '@tanstack/react-query'
+import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { companyAPI, customerAPI, productAPI, transactionAPI } from '../lib/tauri'
 import { useState, useEffect, useRef } from 'react'
 import { 
@@ -30,13 +30,15 @@ import ProductCSVManager from '../components/csv/ProductCSVManager'
 import TransactionCSVExporter from '../components/csv/TransactionCSVExporter'
 
 // 테스트 데이터 생성
-import { generateTestData, clearAllData } from '../lib/testData'
+import { generateAndSaveTestData } from '../lib/generateTestData'
 
-type TabType = 'company' | 'backup' | 'csv' | 'system' | 'dev'
+type TabType = 'company' | 'backup' | 'csv' | 'system'
 
 export default function Settings() {
+  const queryClient = useQueryClient()
   const fileInputRef = useRef<HTMLInputElement>(null)
   const [activeTab, setActiveTab] = useState<TabType>('company')
+  const [isGeneratingTestData, setIsGeneratingTestData] = useState(false)
   
   // 백업 상태
   const [backupStatus, setBackupStatus] = useState<{
@@ -257,40 +259,6 @@ export default function Settings() {
     }
   }
 
-  // 테스트 데이터 생성 상태
-  const [isGeneratingData, setIsGeneratingData] = useState(false)
-  const [isClearingData, setIsClearingData] = useState(false)
-
-  // 테스트 데이터 생성
-  const handleGenerateTestData = async () => {
-    setIsGeneratingData(true)
-    try {
-      const result = await generateTestData()
-      showMessage(
-        `테스트 데이터 생성 완료! 거래처: ${result.customers}개, 상품: ${result.products}개, 거래: ${result.transactions}개`,
-        'success'
-      )
-    } catch (error) {
-      console.error('테스트 데이터 생성 실패:', error)
-      showMessage('테스트 데이터 생성 중 오류가 발생했습니다.', 'error')
-    } finally {
-      setIsGeneratingData(false)
-    }
-  }
-
-  // 데이터 전체 삭제
-  const handleClearAllData = async () => {
-    setIsClearingData(true)
-    try {
-      await clearAllData()
-    } catch (error) {
-      console.error('데이터 삭제 실패:', error)
-      showMessage('데이터 삭제 중 오류가 발생했습니다.', 'error')
-    } finally {
-      setIsClearingData(false)
-    }
-  }
-
   // 백업 폴더 열기
   const handleOpenBackupFolder = async () => {
     if (!backupStatus.settings.backupPath) return
@@ -311,8 +279,7 @@ export default function Settings() {
     { id: 'company' as TabType, name: '회사 정보', icon: '🏢' },
     { id: 'backup' as TabType, name: '백업 관리', icon: '💾' },
     { id: 'csv' as TabType, name: 'CSV 관리', icon: '📊' },
-    { id: 'system' as TabType, name: '시스템 정보', icon: '⚙️' },
-    ...(import.meta.env.DEV ? [{ id: 'dev' as TabType, name: '개발자 도구', icon: '🛠️' }] : [])
+    { id: 'system' as TabType, name: '시스템 정보', icon: '⚙️' }
   ]
 
   if (error) {
@@ -399,6 +366,70 @@ export default function Settings() {
 
         {activeTab === 'csv' && (
           <div className="space-y-6">
+            {/* 테스트 데이터 생성 섹션 */}
+            <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-6">
+              <div className="flex items-start">
+                <div className="flex-shrink-0">
+                  <span className="text-3xl">🎲</span>
+                </div>
+                <div className="ml-3 flex-1">
+                  <h3 className="text-lg font-medium text-yellow-900">
+                    테스트 데이터 생성
+                  </h3>
+                  <div className="mt-2 text-sm text-yellow-700">
+                    <p>시스템 테스트를 위한 샘플 데이터를 자동으로 생성합니다.</p>
+                    <ul className="list-disc list-inside mt-2 space-y-1">
+                      <li>거래처 20개 (고객 12개 + 공급업체 8개)</li>
+                      <li>상품 24개 (돼지/소/닭/오리 각 6개씩)</li>
+                      <li>거래 30개 (매출 18개 + 매입 12개, 최근 6개월)</li>
+                    </ul>
+                  </div>
+                  <div className="mt-4">
+                    <button
+                      onClick={async () => {
+                        if (!window.confirm('기존 데이터가 모두 삭제되고 테스트 데이터로 대체됩니다. 계속하시겠습니까?')) {
+                          return
+                        }
+                        
+                        setIsGeneratingTestData(true)
+                        try {
+                          const result = generateAndSaveTestData()
+                          if (result.success) {
+                            showMessage(result.message, 'success')
+                            // 모든 쿼리 무효화하여 데이터 새로고침
+                            queryClient.invalidateQueries()
+                            setTimeout(() => {
+                              window.location.reload()
+                            }, 1000)
+                          } else {
+                            showMessage(result.message, 'error')
+                          }
+                        } catch (error) {
+                          console.error('테스트 데이터 생성 실패:', error)
+                          showMessage('테스트 데이터 생성 중 오류가 발생했습니다.', 'error')
+                        } finally {
+                          setIsGeneratingTestData(false)
+                        }
+                      }}
+                      disabled={isGeneratingTestData}
+                      className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-yellow-600 hover:bg-yellow-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-yellow-500 disabled:opacity-50 disabled:cursor-not-allowed"
+                    >
+                      {isGeneratingTestData ? (
+                        <>
+                          <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
+                          생성 중...
+                        </>
+                      ) : (
+                        <>
+                          🎲 테스트 데이터 생성
+                        </>
+                      )}
+                    </button>
+                  </div>
+                </div>
+              </div>
+            </div>
+
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
               {customers && <CustomerCSVManager customers={customers} />}
               {products && <ProductCSVManager products={products} />}

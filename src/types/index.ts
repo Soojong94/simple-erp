@@ -123,3 +123,17 @@ export interface DeliveryNote {
   company: Company
   print_date: string
 }
+
+// 정렬 관련 타입 정의
+export type SortOrder = 'asc' | 'desc'
+
+export interface SortOption {
+  value: string
+  label: string
+  icon?: string
+}
+
+export interface SortConfig {
+  sortBy: string
+  sortOrder: SortOrder
+}

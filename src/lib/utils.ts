@@ -107,3 +107,60 @@ export function debounce<T extends (...args: any[]) => any>(
     }, wait)
   }
 }
+
+// ========================================
+// 거래처별 상품 제외 목록 관리
+// ========================================
+
+const EXCLUSION_KEY = 'simple-erp-customer-product-exclusions'
+
+// 제외 목록 불러오기
+export function getCustomerProductExclusions(customerId: number): number[] {
+  try {
+    const data = localStorage.getItem(EXCLUSION_KEY)
+    if (!data) return []
+    
+    const exclusions = JSON.parse(data)
+    return exclusions[customerId] || []
+  } catch (error) {
+    console.error('제외 목록 불러오기 실패:', error)
+    return []
+  }
+}
+
+// 상품 제외 추가
+export function excludeCustomerProduct(customerId: number, productId: number): void {
+  try {
+    const data = localStorage.getItem(EXCLUSION_KEY)
+    const exclusions = data ? JSON.parse(data) : {}
+    
+    if (!exclusions[customerId]) {
+      exclusions[customerId] = []
+    }
+    
+    if (!exclusions[customerId].includes(productId)) {
+      exclusions[customerId].push(productId)
+    }
+    
+    localStorage.setItem(EXCLUSION_KEY, JSON.stringify(exclusions))
+  } catch (error) {
+    console.error('상품 제외 실패:', error)
+  }
+}
+
+// 제외 취소 (다시 추가할 때 사용)
+export function includeCustomerProduct(customerId: number, productId: number): void {
+  try {
+    const data = localStorage.getItem(EXCLUSION_KEY)
+    if (!data) return
+    
+    const exclusions = JSON.parse(data)
+    if (exclusions[customerId]) {
+      exclusions[customerId] = exclusions[customerId].filter((id: number) => id !== productId)
+    }
+    
+    localStorage.setItem(EXCLUSION_KEY, JSON.stringify(exclusions))
+  } catch (error) {
+    console.error('제외 취소 실패:', error)
+  }
+}

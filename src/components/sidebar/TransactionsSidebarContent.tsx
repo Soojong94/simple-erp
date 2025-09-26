@@ -139,7 +139,7 @@ export default function TransactionsSidebarContent({
 
         {/* 거래처 목록 (스크롤 가능) */}
         {filteredCustomers.length > 0 ? (
-          <div className="max-h-96 overflow-y-auto space-y-2 pr-2">
+          <div className="max-h-[600px] overflow-y-auto space-y-2 pr-2">
             {filteredCustomers.map(customer => (
               <SidebarCard
                 key={customer.id}

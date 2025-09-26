@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useMemo } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { transactionAPI, customerAPI, productAPI } from '../lib/tauri'
 import { formatCurrency } from '../lib/utils'
@@ -7,6 +7,7 @@ import TransactionModal from '../components/modals/TransactionModal'
 import TransactionExpandableRow from '../components/expandable/TransactionExpandableRow'
 import PageSidebar from '../components/sidebar/PageSidebar'
 import TransactionsSidebarContent from '../components/sidebar/TransactionsSidebarContent'
+import SortDropdown from '../components/SortDropdown'
 import type { TransactionWithItems } from '../types'
 
 export default function Transactions() {
@@ -20,6 +21,10 @@ export default function Transactions() {
   
   // 기본 필터
   const [filterType, setFilterType] = useState<'all' | 'sales' | 'purchase'>('all')
+  
+  // 정렬 상태
+  const [sortBy, setSortBy] = useState<'date' | 'customer' | 'amount' | 'items'>('date')
+  const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('desc') // 기본: 최신순
   
   // 고급 검색 필터
   const [advancedFilters, setAdvancedFilters] = useState({
@@ -130,6 +135,32 @@ export default function Transactions() {
     return matchesType && matchesDateFrom && matchesDateTo && 
            matchesCustomer && matchesSearch && matchesMinAmount && matchesMaxAmount
   })
+
+  // 정렬된 거래 목록
+  const sortedTransactions = useMemo(() => {
+    if (!filteredTransactions) return []
+    
+    return [...filteredTransactions].sort((a, b) => {
+      let comparison = 0
+      
+      switch (sortBy) {
+        case 'date':
+          comparison = new Date(a.transaction_date).getTime() - new Date(b.transaction_date).getTime()
+          break
+        case 'customer':
+          comparison = a.customer_name.localeCompare(b.customer_name)
+          break
+        case 'amount':
+          comparison = a.total_amount - b.total_amount
+          break
+        case 'items':
+          comparison = (a.items?.length || 0) - (b.items?.length || 0)
+          break
+      }
+      
+      return sortOrder === 'asc' ? comparison : -comparison
+    })
+  }, [filteredTransactions, sortBy, sortOrder])
 
   // 통계 계산
   const stats = {
@@ -289,6 +320,18 @@ export default function Transactions() {
                 <option value="purchase">📦 매입</option>
               </select>
             </div>
+            <SortDropdown
+              options={[
+                { value: 'date', label: '거래일순', icon: '📅' },
+                { value: 'customer', label: '거래처명순', icon: '🏬' },
+                { value: 'amount', label: '금액순', icon: '💰' },
+                { value: 'items', label: '상품수순', icon: '📦' }
+              ]}
+              value={sortBy}
+              onChange={(value) => setSortBy(value as 'date' | 'customer' | 'amount' | 'items')}
+              order={sortOrder}
+              onOrderChange={setSortOrder}
+            />
             <div className="flex-shrink-0">
               <button
                 type="button"
@@ -418,7 +461,7 @@ export default function Transactions() {
                           </div>
                         </td>
                       </tr>
-                    ) : !filteredTransactions || filteredTransactions.length === 0 ? (
+                    ) : !sortedTransactions || sortedTransactions.length === 0 ? (
                       <tr>
                         <td colSpan={7} className="px-6 py-4 text-sm text-gray-500 text-center">
                           {transactions?.length === 0 ? (
@@ -432,7 +475,7 @@ export default function Transactions() {
                         </td>
                       </tr>
                     ) : (
-                      filteredTransactions.map((transaction: TransactionWithItems) => (
+                      sortedTransactions.map((transaction: TransactionWithItems) => (
                         <TransactionExpandableRow
                           key={transaction.id}
                           transaction={transaction}

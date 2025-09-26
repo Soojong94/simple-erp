@@ -6,7 +6,6 @@ import { useChartData } from '../hooks/useChartData'
 // 차트 컴포넌트들
 import MonthlySalesChart from '../components/charts/MonthlySalesChart'
 import CustomerSalesPieChart from '../components/charts/CustomerSalesPieChart'
-import CategorySalesBarChart from '../components/charts/CategorySalesBarChart'
 
 export default function Dashboard() {
   const { data: customers, isLoading: customersLoading } = useQuery({
@@ -25,7 +24,7 @@ export default function Dashboard() {
   })
 
   // 차트 데이터 생성
-  const { monthlyData, customerSalesData, categoryData, thisMonthSales } = useChartData({
+  const { monthlyData, customerSalesData, thisMonthSales } = useChartData({
     transactions,
     products
   })
@@ -150,8 +149,6 @@ export default function Dashboard() {
           <MonthlySalesChart data={monthlyData} isLoading={transactionsLoading} />
           <CustomerSalesPieChart data={customerSalesData} isLoading={transactionsLoading} />
         </div>
-
-        <CategorySalesBarChart data={categoryData} isLoading={transactionsLoading} />
 
         {/* 최근 활동 */}
         <div className="mt-8">

@@ -1,9 +1,10 @@
-import { useState } from 'react'
+import { useState, useMemo } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { customerAPI } from '../lib/tauri'
 import { useExpandableTable } from '../hooks/useExpandableTable'
 import CustomerModal from '../components/modals/CustomerModal'
 import CustomerExpandableRow from '../components/expandable/CustomerExpandableRow'
+import SortDropdown from '../components/SortDropdown'
 import type { Customer } from '../types'
 
 export default function Customers() {
@@ -12,6 +13,10 @@ export default function Customers() {
   const [editingCustomer, setEditingCustomer] = useState<Customer | undefined>(undefined)
   const [filterType, setFilterType] = useState<'all' | 'customer' | 'supplier'>('all')
   const [searchQuery, setSearchQuery] = useState('')
+  
+  // 정렬 상태
+  const [sortBy, setSortBy] = useState<'name' | 'date' | 'type'>('name')
+  const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('asc')
 
   // 확장 테이블 관리
   const { toggleRow, isExpanded } = useExpandableTable()
@@ -50,14 +55,41 @@ export default function Customers() {
   }
 
   // 필터링된 고객 목록
-  const filteredCustomers = customers?.filter(customer => {
-    const matchesType = filterType === 'all' || customer.type === filterType
-    const matchesSearch = !searchQuery || 
-      customer.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      (customer.business_number && customer.business_number.includes(searchQuery)) ||
-      (customer.contact_person && customer.contact_person.toLowerCase().includes(searchQuery.toLowerCase()))
-    return matchesType && matchesSearch
-  })
+  const filteredCustomers = useMemo(() => {
+    if (!customers) return []
+    
+    return customers.filter(customer => {
+      const matchesType = filterType === 'all' || customer.type === filterType
+      const matchesSearch = !searchQuery || 
+        customer.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        (customer.business_number && customer.business_number.includes(searchQuery)) ||
+        (customer.contact_person && customer.contact_person.toLowerCase().includes(searchQuery.toLowerCase()))
+      return matchesType && matchesSearch
+    })
+  }, [customers, filterType, searchQuery])
+
+  // 정렬된 고객 목록
+  const sortedCustomers = useMemo(() => {
+    if (!filteredCustomers) return []
+    
+    return [...filteredCustomers].sort((a, b) => {
+      let comparison = 0
+      
+      switch (sortBy) {
+        case 'name':
+          comparison = a.name.localeCompare(b.name)
+          break
+        case 'date':
+          comparison = new Date(a.created_at || 0).getTime() - new Date(b.created_at || 0).getTime()
+          break
+        case 'type':
+          comparison = a.type.localeCompare(b.type)
+          break
+      }
+      
+      return sortOrder === 'asc' ? comparison : -comparison
+    })
+  }, [filteredCustomers, sortBy, sortOrder])
 
   if (error) {
     console.error('Customer API error:', error)
@@ -72,7 +104,7 @@ export default function Customers() {
   return (
     <div className="flex">
       {/* 메인 컨텐츠 영역 */}
-      <div className="flex-1 pr-6">
+      <div className="flex-1 pr-4">
         <div className="sm:flex sm:items-center">
           <div className="sm:flex-auto">
             <h1 className="text-2xl font-semibold text-gray-900">거래처 관리</h1>
@@ -114,6 +146,17 @@ export default function Customers() {
                 <option value="supplier">공급업체</option>
               </select>
             </div>
+            <SortDropdown
+              options={[
+                { value: 'name', label: '이름순', icon: '📝' },
+                { value: 'date', label: '등록일순', icon: '📅' },
+                { value: 'type', label: '유형별', icon: '🏷️' }
+              ]}
+              value={sortBy}
+              onChange={(value) => setSortBy(value as 'name' | 'date' | 'type')}
+              order={sortOrder}
+              onOrderChange={setSortOrder}
+            />
           </div>
         </div>
 
@@ -207,9 +250,6 @@ export default function Customers() {
                         전화번호
                       </th>
                       <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wide">
-                        이메일
-                      </th>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wide">
                         구분
                       </th>
                       <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wide">
@@ -223,16 +263,16 @@ export default function Customers() {
                   <tbody className="bg-white divide-y divide-gray-200">
                     {isLoading ? (
                       <tr>
-                        <td colSpan={8} className="px-6 py-4 text-sm text-gray-500 text-center">
+                        <td colSpan={7} className="px-6 py-4 text-sm text-gray-500 text-center">
                           <div className="flex justify-center items-center">
                             <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-blue-600"></div>
                             <span className="ml-2">로딩 중...</span>
                           </div>
                         </td>
                       </tr>
-                    ) : !filteredCustomers || filteredCustomers.length === 0 ? (
+                    ) : !sortedCustomers || sortedCustomers.length === 0 ? (
                       <tr>
-                        <td colSpan={8} className="px-6 py-4 text-sm text-gray-500 text-center">
+                        <td colSpan={7} className="px-6 py-4 text-sm text-gray-500 text-center">
                           {customers?.length === 0 ? (
                             <div>
                               <p className="text-gray-900 font-medium">등록된 거래처가 없습니다.</p>
@@ -244,7 +284,7 @@ export default function Customers() {
                         </td>
                       </tr>
                     ) : (
-                      filteredCustomers.map((customer: Customer) => (
+                      sortedCustomers.map((customer: Customer) => (
                         <CustomerExpandableRow
                           key={customer.id}
                           customer={customer}
@@ -271,7 +311,7 @@ export default function Customers() {
       </div>
 
       {/* 사이드바 - 빠른 거래처 목록 */}
-      <div className="w-80 bg-gray-50 border-l border-gray-200 p-4">
+      <div className="w-64 bg-gray-50 border-l border-gray-200 p-3">
         <div className="sticky top-6">
           <h3 className="text-sm font-semibold text-gray-900 mb-3">📋 빠른 거래처 목록</h3>
           
@@ -284,7 +324,7 @@ export default function Customers() {
                 .map(customer => (
                   <div 
                     key={customer.id}
-                    className="bg-white rounded-lg p-3 shadow-sm border hover:shadow-md transition-shadow cursor-pointer"
+                    className="bg-white rounded-lg p-2 shadow-sm border hover:shadow-md transition-shadow cursor-pointer"
                     onClick={() => {
                       // 해당 거래처로 필터링
                       setFilterType(customer.type)
@@ -293,49 +333,41 @@ export default function Customers() {
                   >
                     <div className="flex items-center justify-between">
                       <div className="flex-1 min-w-0">
-                        <div className="flex items-center space-x-2">
-                          <span className="text-lg">
-                            {customer.type === 'customer' ? '🛒' : '🏭'}
-                          </span>
-                          <div className="min-w-0 flex-1">
-                            <p className="text-sm font-medium text-gray-900 truncate">
-                              {customer.name}
-                            </p>
-                            {customer.contact_person && (
-                              <p className="text-xs text-gray-500 truncate">
-                                {customer.contact_person}
-                              </p>
-                            )}
+                        <div className="flex items-center justify-between">
+                          <div className="flex items-center space-x-1.5 flex-1 min-w-0">
+                            <span className="text-base">
+                              {customer.type === 'customer' ? '🛒' : '🏭'}
+                            </span>
+                            <div className="flex-1 min-w-0">
+                              <div className="flex items-center space-x-1.5">
+                                <p className="text-xs font-medium text-gray-900 truncate">
+                                  {customer.name}
+                                </p>
+                                <span className={`inline-flex px-1.5 py-0.5 rounded text-[10px] font-medium ${
+                                  customer.type === 'customer' 
+                                    ? 'bg-green-100 text-green-800' 
+                                    : 'bg-blue-100 text-blue-800'
+                                }`}>
+                                  {customer.type === 'customer' ? '고객' : '공급'}
+                                </span>
+                              </div>
+                              {customer.phone && (
+                                <p className="text-[10px] text-gray-500 truncate mt-0.5">
+                                  {customer.phone}
+                                </p>
+                              )}
+                            </div>
                           </div>
-                        </div>
-                        
-                        {customer.phone && (
-                          <div className="mt-1 flex items-center text-xs text-gray-500">
-                            <span className="mr-1">📞</span>
-                            <span className="truncate">{customer.phone}</span>
-                          </div>
-                        )}
-                        
-                        <div className="mt-1 flex items-center justify-between">
-                          <span className={`inline-flex px-2 py-0.5 rounded-full text-xs font-medium ${
-                            customer.type === 'customer' 
-                              ? 'bg-green-100 text-green-800' 
-                              : 'bg-blue-100 text-blue-800'
-                          }`}>
-                            {customer.type === 'customer' ? '고객' : '공급업체'}
-                          </span>
-                          
-                          <div className="flex space-x-1">
-                            <button
-                              onClick={(e) => {
-                                e.stopPropagation()
-                                handleEditCustomer(customer)
-                              }}
-                              className="text-xs text-blue-600 hover:text-blue-800"
-                            >
-                              수정
-                            </button>
-                          </div>
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation()
+                              handleEditCustomer(customer)
+                            }}
+                            className="ml-1 p-1 text-blue-600 hover:bg-blue-50 rounded flex-shrink-0"
+                            title="수정"
+                          >
+                            ✏️
+                          </button>
                         </div>
                       </div>
                     </div>

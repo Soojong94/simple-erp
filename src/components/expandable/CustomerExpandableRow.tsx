@@ -65,9 +65,6 @@ export default function CustomerExpandableRow({
         <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
           {customer.phone || '-'}
         </td>
-        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-          {customer.email || '-'}
-        </td>
         <td className="px-6 py-4 whitespace-nowrap">
           <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
             customer.type === 'customer' 
@@ -107,7 +104,7 @@ export default function CustomerExpandableRow({
       {/* 확장된 상세 정보 */}
       {isExpanded && (
         <tr>
-          <td colSpan={8} className="px-0 py-0">
+          <td colSpan={7} className="px-0 py-0">
             <div className="transition-all duration-300 ease-in-out">
               <ExpandableRowCard>
                 <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">

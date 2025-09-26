@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { customerAPI } from '../../lib/tauri'
 import type { Customer } from '../../types'
@@ -14,15 +14,33 @@ export default function CustomerModal({ isOpen, onClose, customer }: CustomerMod
   const isEditing = !!customer
 
   const [formData, setFormData] = useState({
-    name: customer?.name || '',
-    business_number: customer?.business_number || '',
-    type: customer?.type || 'customer' as 'customer' | 'supplier',
-    contact_person: customer?.contact_person || '',
-    phone: customer?.phone || '',
-    email: customer?.email || '',
-    address: customer?.address || '',
-    is_active: customer?.is_active ?? true
+    name: '',
+    business_number: '',
+    type: 'customer' as 'customer' | 'supplier',
+    contact_person: '',
+    phone: '',
+    email: '',
+    address: '',
+    is_active: true
   })
+
+  // customer prop 변경 시 formData 업데이트
+  useEffect(() => {
+    if (customer) {
+      setFormData({
+        name: customer.name || '',
+        business_number: customer.business_number || '',
+        type: customer.type || 'customer',
+        contact_person: customer.contact_person || '',
+        phone: customer.phone || '',
+        email: customer.email || '',
+        address: customer.address || '',
+        is_active: customer.is_active ?? true
+      })
+    } else {
+      resetForm()
+    }
+  }, [customer])
 
   const createMutation = useMutation({
     mutationFn: customerAPI.create,

@@ -4,16 +4,41 @@ interface TransactionSummaryProps {
   totalAmount: number
   taxAmount: number
   itemsCount: number
+  isVatIncluded: boolean
+  onVatIncludedChange: (included: boolean) => void
+  displayTotalAmount: number
 }
 
-export default function TransactionSummary({ totalAmount, taxAmount, itemsCount }: TransactionSummaryProps) {
+export default function TransactionSummary({ 
+  totalAmount, 
+  taxAmount, 
+  itemsCount,
+  isVatIncluded,
+  onVatIncludedChange,
+  displayTotalAmount
+}: TransactionSummaryProps) {
   if (itemsCount === 0) {
     return null
   }
 
   return (
     <div className="bg-gray-50 p-4 rounded-md border border-gray-200">
-      <h4 className="font-medium text-gray-900 mb-3">거래 요약</h4>
+      <div className="flex items-center justify-between mb-3">
+        <h4 className="font-medium text-gray-900">💰 거래 요약</h4>
+        
+        {/* VAT 토글 */}
+        <label className="flex items-center cursor-pointer">
+          <input
+            type="checkbox"
+            checked={isVatIncluded}
+            onChange={(e) => onVatIncludedChange(e.target.checked)}
+            className="mr-2 h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
+          />
+          <span className="text-xs text-gray-700">
+            {isVatIncluded ? '🔹 VAT 포함 금액' : '🔸 VAT 미포함 금액'}
+          </span>
+        </label>
+      </div>
       
       <div className="space-y-2">
         <div className="flex justify-between text-sm text-gray-600">
@@ -22,8 +47,8 @@ export default function TransactionSummary({ totalAmount, taxAmount, itemsCount 
         </div>
         
         <div className="flex justify-between text-sm text-gray-600">
-          <span>상품 금액</span>
-          <span>{formatCurrency(totalAmount)}</span>
+          <span>공급가액</span>
+          <span>{formatCurrency(isVatIncluded ? totalAmount - taxAmount : totalAmount)}</span>
         </div>
         
         <div className="flex justify-between text-sm text-gray-600">
@@ -35,7 +60,7 @@ export default function TransactionSummary({ totalAmount, taxAmount, itemsCount 
         
         <div className="flex justify-between text-lg font-semibold text-gray-900">
           <span>총 금액</span>
-          <span className="text-blue-600">{formatCurrency(totalAmount + taxAmount)}</span>
+          <span className="text-blue-600">{formatCurrency(displayTotalAmount)}</span>
         </div>
       </div>
 

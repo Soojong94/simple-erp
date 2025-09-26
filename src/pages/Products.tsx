@@ -5,6 +5,7 @@ import { formatCurrency } from '../lib/utils'
 import { useExpandableTable } from '../hooks/useExpandableTable'
 import ProductModal from '../components/modals/ProductModal'
 import ProductExpandableRow from '../components/expandable/ProductExpandableRow'
+import SortDropdown from '../components/SortDropdown'
 import type { Product } from '../types'
 
 export default function Products() {
@@ -15,17 +16,11 @@ export default function Products() {
   // 기본 필터
   const [filterCategory, setFilterCategory] = useState<string>('all')
   const [searchQuery, setSearchQuery] = useState('')
+  const [activeOnly, setActiveOnly] = useState(true)
   
-  // 고급 검색 필터
-  const [advancedFilters, setAdvancedFilters] = useState({
-    priceFrom: '',
-    priceTo: '',
-    activeOnly: true,
-    sortBy: 'name' as 'name' | 'usage' | 'price' | 'recent',
-    sortOrder: 'asc' as 'asc' | 'desc'
-  })
-  
-  const [showAdvancedSearch, setShowAdvancedSearch] = useState(false)
+  // 정렬 상태
+  const [sortBy, setSortBy] = useState<'name' | 'category' | 'price' | 'date'>('name')
+  const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('asc')
 
   // 확장 테이블 관리
   const { toggleRow, isExpanded } = useExpandableTable()
@@ -103,61 +98,44 @@ export default function Products() {
     return usageMap
   }, [products, transactions])
 
-  // 고급 필터링 및 정렬된 상품 목록
+  // 필터링 및 정렬된 상품 목록
   const filteredAndSortedProducts = useMemo(() => {
     if (!products) return []
     
     // 필터링
     let filtered = products.filter(product => {
-      // 기본 필터
       const matchesCategory = filterCategory === 'all' || product.category === filterCategory
       const matchesSearch = !searchQuery || 
         product.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
         (product.code && product.code.toLowerCase().includes(searchQuery.toLowerCase())) ||
         (product.category && product.category.toLowerCase().includes(searchQuery.toLowerCase()))
+      const matchesActive = !activeOnly || product.is_active
       
-      // 고급 필터
-      const matchesActive = !advancedFilters.activeOnly || product.is_active
-      
-      // 가격 범위 필터
-      const matchesPriceFrom = !advancedFilters.priceFrom || 
-        (product.unit_price && product.unit_price >= Number(advancedFilters.priceFrom))
-      const matchesPriceTo = !advancedFilters.priceTo || 
-        (product.unit_price && product.unit_price <= Number(advancedFilters.priceTo))
-      
-      return matchesCategory && matchesSearch && matchesActive && matchesPriceFrom && matchesPriceTo
+      return matchesCategory && matchesSearch && matchesActive
     })
     
     // 정렬
-    filtered.sort((a, b) => {
+    return [...filtered].sort((a, b) => {
       let comparison = 0
       
-      switch (advancedFilters.sortBy) {
+      switch (sortBy) {
         case 'name':
           comparison = a.name.localeCompare(b.name)
+          break
+        case 'category':
+          comparison = (a.category || '').localeCompare(b.category || '')
           break
         case 'price':
           comparison = (a.unit_price || 0) - (b.unit_price || 0)
           break
-        case 'usage':
-          const aUsage = productUsageStats.get(a.id || 0)?.count || 0
-          const bUsage = productUsageStats.get(b.id || 0)?.count || 0
-          comparison = bUsage - aUsage // 사용 빈도는 내림차순이 기본
+        case 'date':
+          comparison = new Date(a.created_at || 0).getTime() - new Date(b.created_at || 0).getTime()
           break
-        case 'recent':
-          const aRecent = productUsageStats.get(a.id || 0)?.lastUsed || ''
-          const bRecent = productUsageStats.get(b.id || 0)?.lastUsed || ''
-          comparison = bRecent.localeCompare(aRecent) // 최근 사용순
-          break
-        default:
-          comparison = 0
       }
       
-      return advancedFilters.sortOrder === 'desc' ? -comparison : comparison
+      return sortOrder === 'asc' ? comparison : -comparison
     })
-    
-    return filtered
-  }, [products, filterCategory, searchQuery, advancedFilters, productUsageStats])
+  }, [products, filterCategory, searchQuery, activeOnly, sortBy, sortOrder])
 
   if (error) {
     console.error('Products API error:', error)
@@ -216,6 +194,29 @@ export default function Products() {
               ))}
             </select>
           </div>
+          <div className="flex-shrink-0">
+            <label className="flex items-center">
+              <input
+                type="checkbox"
+                checked={activeOnly}
+                onChange={(e) => setActiveOnly(e.target.checked)}
+                className="mr-2"
+              />
+              <span className="text-sm">활성 상품만</span>
+            </label>
+          </div>
+          <SortDropdown
+            options={[
+              { value: 'name', label: '이름순', icon: '📝' },
+              { value: 'category', label: '카테고리별', icon: '🏷️' },
+              { value: 'price', label: '가격순', icon: '💰' },
+              { value: 'date', label: '등록일순', icon: '📅' }
+            ]}
+            value={sortBy}
+            onChange={(value) => setSortBy(value as 'name' | 'category' | 'price' | 'date')}
+            order={sortOrder}
+            onOrderChange={setSortOrder}
+          />
         </div>
       </div>
 

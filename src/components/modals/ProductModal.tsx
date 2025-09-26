@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { productAPI } from '../../lib/tauri'
 import type { Product } from '../../types'
@@ -14,14 +14,31 @@ export default function ProductModal({ isOpen, onClose, product }: ProductModalP
   const isEditing = !!product
 
   const [formData, setFormData] = useState({
-    name: product?.name || '',
-    code: product?.code || '',
-    category: product?.category || '',
-    unit: product?.unit || 'kg',
-    unit_price: product?.unit_price || '',
-    description: product?.description || '',
-    is_active: product?.is_active ?? true
+    name: '',
+    code: '',
+    category: '',
+    unit: 'kg',
+    unit_price: '',
+    description: '',
+    is_active: true
   })
+
+  // product prop 변경 시 formData 업데이트
+  useEffect(() => {
+    if (product) {
+      setFormData({
+        name: product.name || '',
+        code: product.code || '',
+        category: product.category || '',
+        unit: product.unit || 'kg',
+        unit_price: product.unit_price || '',
+        description: product.description || '',
+        is_active: product.is_active ?? true
+      })
+    } else {
+      resetForm()
+    }
+  }, [product])
 
   const createMutation = useMutation({
     mutationFn: productAPI.create,
