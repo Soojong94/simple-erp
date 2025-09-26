@@ -9,6 +9,7 @@ interface TransactionExpandableRowProps {
   onToggle: () => void
   onEdit: () => void
   onDelete: () => void
+  onPrint: () => void  // 🆕 거래증 출력 추가
 }
 
 export default function TransactionExpandableRow({ 
@@ -17,7 +18,8 @@ export default function TransactionExpandableRow({
   isExpanded, 
   onToggle, 
   onEdit, 
-  onDelete 
+  onDelete,
+  onPrint  // 🆕 거래증 출력
 }: TransactionExpandableRowProps) {
   
   const getTransactionTypeDisplay = (type: string) => {
@@ -63,8 +65,14 @@ export default function TransactionExpandableRow({
         <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
           <div className="flex space-x-2" onClick={(e) => e.stopPropagation()}>
             <button
+              onClick={onPrint}
+              className="text-blue-600 hover:text-blue-900 transition-colors font-medium"
+            >
+              📄 거래증
+            </button>
+            <button
               onClick={onEdit}
-              className="text-blue-600 hover:text-blue-900 transition-colors"
+              className="text-indigo-600 hover:text-indigo-900 transition-colors"
             >
               ✏️ 수정
             </button>

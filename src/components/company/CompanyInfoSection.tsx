@@ -25,7 +25,8 @@ export default function CompanyInfoSection({
     email: '',
     business_type: '',
     tax_invoice_api_key: '',
-    tax_invoice_cert_file: ''
+    tax_invoice_cert_file: '',
+    default_invoice_memo: ''  // 🆕 기본 메모 추가
   })
 
   useEffect(() => {
@@ -39,7 +40,8 @@ export default function CompanyInfoSection({
         email: company.email || '',
         business_type: company.business_type || '',
         tax_invoice_api_key: company.tax_invoice_api_key || '',
-        tax_invoice_cert_file: company.tax_invoice_cert_file || ''
+        tax_invoice_cert_file: company.tax_invoice_cert_file || '',
+        default_invoice_memo: company.default_invoice_memo || ''  // 🆕 기본 메모 추가
       })
     }
   }, [company])
@@ -87,7 +89,8 @@ export default function CompanyInfoSection({
         email: company.email || '',
         business_type: company.business_type || '',
         tax_invoice_api_key: company.tax_invoice_api_key || '',
-        tax_invoice_cert_file: company.tax_invoice_cert_file || ''
+        tax_invoice_cert_file: company.tax_invoice_cert_file || '',
+        default_invoice_memo: company.default_invoice_memo || ''  // 🆕 기본 메모 추가
       })
     }
   }
@@ -207,6 +210,25 @@ export default function CompanyInfoSection({
                   disabled={!isEditing}
                   className={`mt-1 block w-full border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500 sm:text-sm ${!isEditing ? 'bg-gray-50' : ''}`}
                   placeholder="제조업, 도소매업 등"
+                />
+              </div>
+              
+              {/* 🆕 거래명세서 기본 메모 */}
+              <div className="sm:col-span-2">
+                <label className="block text-sm font-medium text-gray-700">
+                  📝 거래명세서 기본 메모
+                </label>
+                <p className="text-xs text-gray-500 mt-1">
+                  거래명세서 출력 시 메모란에 기본으로 표시될 내용 (계좌번호, 처리 주의사항 등)
+                </p>
+                <textarea
+                  name="default_invoice_memo"
+                  value={formData.default_invoice_memo}
+                  onChange={(e) => setFormData(prev => ({ ...prev, default_invoice_memo: e.target.value }))}
+                  disabled={!isEditing}
+                  rows={3}
+                  className={`mt-1 block w-full border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500 sm:text-sm ${!isEditing ? 'bg-gray-50' : ''}`}
+                  placeholder="예: 입금계좌: 국민은행 123-456-789012 (예금주: 고기유통주식회사)&#10;거래 문의: 02-1234-5678"
                 />
               </div>
             </div>

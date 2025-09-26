@@ -91,6 +91,7 @@ export interface Company {
   business_type?: string
   tax_invoice_api_key?: string
   tax_invoice_cert_file?: string
+  default_invoice_memo?: string  // 🆕 기본 메모 추가
   created_at?: string
 }
 

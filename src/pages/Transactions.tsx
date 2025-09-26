@@ -8,6 +8,7 @@ import TransactionExpandableRow from '../components/expandable/TransactionExpand
 import PageSidebar from '../components/sidebar/PageSidebar'
 import TransactionsSidebarContent from '../components/sidebar/TransactionsSidebarContent'
 import SortDropdown from '../components/SortDropdown'
+import InvoicePreviewModal from '../components/invoice/InvoicePreviewModal'  // 🆕 추가
 import type { TransactionWithItems } from '../types'
 
 export default function Transactions() {
@@ -15,6 +16,10 @@ export default function Transactions() {
   const [isModalOpen, setIsModalOpen] = useState(false)
   const [editingTransaction, setEditingTransaction] = useState<TransactionWithItems | undefined>(undefined)
   const [preSelectedCustomerId, setPreSelectedCustomerId] = useState(0)
+  
+  // 🆕 거래증 모달 상태
+  const [isInvoiceModalOpen, setIsInvoiceModalOpen] = useState(false)
+  const [selectedTransaction, setSelectedTransaction] = useState<TransactionWithItems | undefined>(undefined)
   
   // 확장형 테이블 관리
   const { expandedId, toggleRow, isExpanded } = useExpandableTable()
@@ -96,6 +101,12 @@ export default function Transactions() {
     if (confirm(`${customerName}과의 거래를 삭제하시겠습니까?`)) {
       deleteMutation.mutate(id)
     }
+  }
+
+  const handlePrintInvoice = (transaction: TransactionWithItems) => {
+    console.log('📄 거래증 출력:', transaction.id)
+    setSelectedTransaction(transaction)
+    setIsInvoiceModalOpen(true)
   }
 
   // 사이드바 필터 변경 핸들러
@@ -590,11 +601,12 @@ export default function Transactions() {
                         <TransactionExpandableRow
                           key={transaction.id}
                           transaction={transaction}
-                          displayNumber={transaction.id}  // 🎯 실제 거래 ID 표시
+                          displayNumber={index + 1}  // 🎯 필터링된 순번 표시
                           isExpanded={isExpanded(transaction.id!)}
                           onToggle={() => toggleRow(transaction.id!)}
                           onEdit={() => handleEditTransaction(transaction)}
                           onDelete={() => handleDeleteTransaction(transaction.id!, transaction.customer_name)}
+                          onPrint={() => handlePrintInvoice(transaction)}  // 🆕 거래증 출력
                         />
                       ))
                     )}
@@ -616,6 +628,18 @@ export default function Transactions() {
           transaction={editingTransaction}
           preSelectedCustomerId={preSelectedCustomerId}
         />
+
+        {/* 🆕 거래증 미리보기 모달 */}
+        {selectedTransaction && (
+          <InvoicePreviewModal
+            isOpen={isInvoiceModalOpen}
+            onClose={() => {
+              setIsInvoiceModalOpen(false)
+              setSelectedTransaction(undefined)
+            }}
+            transaction={selectedTransaction}
+          />
+        )}
       </div>
 
       {/* 사이드바 */}
