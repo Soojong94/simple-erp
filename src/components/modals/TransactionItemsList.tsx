@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import { formatCurrency } from '../../lib/utils'
+import ProductDropdown from './ProductDropdown'
 import type { TransactionItem, Product } from '../../types'
 
 interface TransactionItemsListProps {
@@ -93,127 +94,40 @@ interface TransactionItemCardProps {
 }
 
 function TransactionItemCard({ item, index, products, customerId, frequentProducts, allTransactions, onUpdate, onRemove, onExclude }: TransactionItemCardProps) {
-  // 전체 상품 보기 모드 🎉
-  const [showAllProducts, setShowAllProducts] = useState(false)
-  
   return (
     <div className="border border-gray-300 rounded-lg p-4 bg-white">
       <div className="flex justify-between items-center mb-3">
         <h4 className="font-medium text-gray-900">상품 #{index + 1}</h4>
-        <div className="flex space-x-2">
-          {/* 상품 제외 버튼 🎉 */}
-          {item.product_id > 0 && customerId > 0 && onExclude && (
-            <button
-              type="button"
-              onClick={() => {
-                const product = products?.find(p => p.id === item.product_id)
-                if (product && confirm(`'${product.name}'을(를) 자주 거래하는 상품 목록에서 제외할까요?\n\n"전체 상품 보기"에서는 여전히 선택 가능합니다.`)) {
-                  onExclude(item.product_id)
-                  // 상품 초기화
-                  onUpdate(index, 'product_id', 0)
-                }
-              }}
-              className="text-orange-600 hover:text-orange-800 text-sm font-medium transition-colors"
-              title="자주 거래하는 상품 목록에서 제외"
-            >
-              ❌ 목록에서 제외
-            </button>
-          )}
-          
-          {/* 삭제 버튼 */}
-          <button
-            type="button"
-            onClick={() => onRemove(index)}
-            className="text-red-600 hover:text-red-800 text-sm font-medium transition-colors"
-          >
-            ✕ 삭제
-          </button>
-        </div>
+        <button
+          type="button"
+          onClick={() => onRemove(index)}
+          className="text-red-600 hover:text-red-800 text-sm font-medium transition-colors"
+        >
+          ✕ 삭제
+        </button>
       </div>
 
       <div className="grid grid-cols-2 gap-4 mb-4">
-        {/* 상품 선택 */}
+        {/* 상품 선택 - 커스텀 드롭다운 */}
         <div>
           <label className="block text-sm font-medium text-gray-700 mb-1">
             상품 *
           </label>
           
-          <select
+          <ProductDropdown
             value={item.product_id}
-            onChange={(e) => {
-              const value = Number(e.target.value)
-              if (value === -999) {
-                // "전체 상품 보기" 선택 시 토글
-                setShowAllProducts(true)
-                return
+            products={products || []}
+            frequentProducts={frequentProducts || []}
+            customerId={customerId}
+            onChange={(productId) => onUpdate(index, 'product_id', productId)}
+            onExclude={(productId) => {
+              if (onExclude) {
+                onExclude(productId)
+                // 상품 초기화
+                onUpdate(index, 'product_id', 0)
               }
-              onUpdate(index, 'product_id', value)
             }}
-            className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-blue-500 focus:border-blue-500"
-          >
-            <option value={0}>상품을 선택하세요</option>
-            
-            {/* 자주 거래한 상품들 */}
-            {customerId > 0 && frequentProducts && frequentProducts.length > 0 && !showAllProducts && (
-              <>
-                {frequentProducts.map(product => (
-                  <option key={product.id} value={product.id}>
-                    ⭐ {getCategoryIcon(product.category)} {product.name}
-                  </option>
-                ))}
-                <option value={-999} className="text-blue-600 font-medium">
-                  ➕ 전체 상품 보기...
-                </option>
-              </>
-            )}
-            
-            {/* 전체 상품 보기 모드 */}
-            {(showAllProducts || (customerId > 0 && (!frequentProducts || frequentProducts.length === 0))) && (
-              <>
-                {showAllProducts && frequentProducts && frequentProducts.length > 0 && (
-                  <optgroup label="━━ 자주 거래한 상품 ━━">
-                    {frequentProducts.map(product => (
-                      <option key={`freq-${product.id}`} value={product.id}>
-                        ⭐ {getCategoryIcon(product.category)} {product.name}
-                      </option>
-                    ))}
-                  </optgroup>
-                )}
-                
-                {showAllProducts && frequentProducts && frequentProducts.length > 0 && (
-                  <optgroup label="━━ 전체 상품 ━━">
-                    {products?.filter(p => p.is_active).map(product => (
-                      <option key={product.id} value={product.id}>
-                        {getCategoryIcon(product.category)} {product.name}
-                      </option>
-                    ))}
-                  </optgroup>
-                )}
-                
-                {/* 거래 이력 없을 때는 바로 전체 */}
-                {(!frequentProducts || frequentProducts.length === 0) && (
-                  <>
-                    {products?.filter(p => p.is_active).map(product => (
-                      <option key={product.id} value={product.id}>
-                        {getCategoryIcon(product.category)} {product.name}
-                      </option>
-                    ))}
-                  </>
-                )}
-              </>
-            )}
-          </select>
-          
-          {/* 다시 자주 거래한 상품만 보기 버튼 */}
-          {showAllProducts && frequentProducts && frequentProducts.length > 0 && (
-            <button
-              type="button"
-              onClick={() => setShowAllProducts(false)}
-              className="mt-2 text-sm text-blue-600 hover:text-blue-800"
-            >
-              ← 자주 거래한 상품만 보기
-            </button>
-          )}
+          />
         </div>
 
         {/* 수량 */}

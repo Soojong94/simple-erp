@@ -32,6 +32,11 @@ export default function TransactionModal({
     notes: ''
   })
 
+  // formData.customer_id 변경 감지 (디버그용)
+  useEffect(() => {
+    console.log('📊 formData.customer_id 변경:', formData.customer_id)
+  }, [formData.customer_id])
+
   const [items, setItems] = useState<TransactionItem[]>([])
   
   // VAT 포함/미포함 상태 (localStorage에서 불러오기)
@@ -63,13 +68,20 @@ export default function TransactionModal({
 
   // preSelectedCustomerId 처리 (수정 모드가 아닐 때만)
   useEffect(() => {
-    if (preSelectedCustomerId && preSelectedCustomerId > 0 && !transaction) {
+    console.log('🎯 preSelectedCustomerId useEffect 실행:', {
+      preSelectedCustomerId,
+      isEditing,
+      transaction: !!transaction
+    })
+    
+    if (preSelectedCustomerId && preSelectedCustomerId > 0 && !isEditing) {
+      console.log('✅ 거래처 자동 선택:', preSelectedCustomerId)
       setFormData(prev => ({
         ...prev,
         customer_id: preSelectedCustomerId
       }))
     }
-  }, [preSelectedCustomerId, transaction])
+  }, [preSelectedCustomerId, isEditing])
 
   // 데이터 조회
   const { data: customers } = useQuery({

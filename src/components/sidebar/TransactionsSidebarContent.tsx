@@ -8,6 +8,8 @@ import type { Customer } from '../../types'
 
 interface TransactionsSidebarContentProps {
   customers?: Customer[]
+  searchTerm: string  // 🆕 부모로부터 받음
+  onSearchChange: (term: string) => void  // 🆕 부모에게 알림
   onCustomerClick: (customerId: number) => void
   onAddTransactionWithCustomer: (customerId: number) => void
   onFilterChange: (filters: {
@@ -19,11 +21,13 @@ interface TransactionsSidebarContentProps {
 
 export default function TransactionsSidebarContent({
   customers,
+  searchTerm,  // 🆕 props로 받음
+  onSearchChange,  // 🆕 props로 받음
   onCustomerClick,
   onAddTransactionWithCustomer,
   onFilterChange
 }: TransactionsSidebarContentProps) {
-  const [searchTerm, setSearchTerm] = useState('')
+  // const [searchTerm, setSearchTerm] = useState('')  // ❌ 삭제
   const [customerFilter, setCustomerFilter] = useState<'all' | 'customer' | 'supplier'>('all')
   const [transactionTypeFilter, setTransactionTypeFilter] = useState<'all' | 'sales' | 'purchase'>('all')
 
@@ -68,7 +72,8 @@ export default function TransactionsSidebarContent({
   }
 
   const handleSearchChange = (value: string) => {
-    setSearchTerm(value)
+    // setSearchTerm(value)  // ❌ 삭제
+    onSearchChange(value)  // 🆕 부모에게 알림
     handleFilterChange({ searchTerm: value } as any)
   }
 

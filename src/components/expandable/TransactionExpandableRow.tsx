@@ -4,6 +4,7 @@ import type { TransactionWithItems } from '../../types'
 
 interface TransactionExpandableRowProps {
   transaction: TransactionWithItems
+  displayNumber?: number  // 🎯 순번 추가
   isExpanded: boolean
   onToggle: () => void
   onEdit: () => void
@@ -11,7 +12,8 @@ interface TransactionExpandableRowProps {
 }
 
 export default function TransactionExpandableRow({ 
-  transaction, 
+  transaction,
+  displayNumber,  // 🎯 순번 받기
   isExpanded, 
   onToggle, 
   onEdit, 
@@ -34,7 +36,7 @@ export default function TransactionExpandableRow({
             <span className="mr-2 text-gray-400 transition-transform duration-200">
               {isExpanded ? '▼' : '▶'}
             </span>
-            #{transaction.id}
+            #{displayNumber || transaction.id}
           </div>
         </td>
         <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">

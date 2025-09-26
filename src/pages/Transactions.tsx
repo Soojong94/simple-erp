@@ -1,4 +1,4 @@
-import { useState, useMemo } from 'react'
+import { useState, useMemo, useEffect } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { transactionAPI, customerAPI, productAPI } from '../lib/tauri'
 import { formatCurrency } from '../lib/utils'
@@ -26,6 +26,9 @@ export default function Transactions() {
   const [sortBy, setSortBy] = useState<'date' | 'customer' | 'amount' | 'items'>('date')
   const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('desc') // 기본: 최신순
   
+  // 사이드바 검색어 상태 (부모에서 관리) 🆕
+  const [sidebarSearchTerm, setSidebarSearchTerm] = useState('')
+  
   // 고급 검색 필터
   const [advancedFilters, setAdvancedFilters] = useState({
     dateFrom: '',
@@ -35,6 +38,11 @@ export default function Transactions() {
     minAmount: '',
     maxAmount: ''
   })
+  
+  // advancedFilters 변경 감지 (디버그용)
+  useEffect(() => {
+    console.log('📄 advancedFilters 변경:', advancedFilters)
+  }, [advancedFilters])
   
   const [showAdvancedSearch, setShowAdvancedSearch] = useState(false)
 
@@ -65,12 +73,14 @@ export default function Transactions() {
 
   // Event handlers
   const handleAddTransaction = () => {
+    console.log('🎯 거래 추가 버튼 클릭')
     setEditingTransaction(undefined)
     setPreSelectedCustomerId(0)
     setIsModalOpen(true)
   }
 
   const handleAddTransactionWithCustomer = (customerId: number) => {
+    console.log('🎯 거래처로 거래 추가:', customerId)
     setEditingTransaction(undefined)
     setPreSelectedCustomerId(customerId)
     setIsModalOpen(true)
@@ -94,6 +104,8 @@ export default function Transactions() {
     customerFilter: 'all' | 'customer' | 'supplier'
     transactionTypeFilter: 'all' | 'sales' | 'purchase'
   }) => {
+    console.log('🔄 사이드바 필터 변경:', filters)
+    
     // 거래 타입 필터 적용
     if (filters.transactionTypeFilter !== 'all') {
       setFilterType(filters.transactionTypeFilter)
@@ -132,6 +144,26 @@ export default function Transactions() {
     const matchesMinAmount = !advancedFilters.minAmount || transaction.total_amount >= Number(advancedFilters.minAmount)
     const matchesMaxAmount = !advancedFilters.maxAmount || transaction.total_amount <= Number(advancedFilters.maxAmount)
     
+    // 디버그 로그
+    if (advancedFilters.searchQuery) {
+      console.log('🔍 검색 필터링:', {
+        query: advancedFilters.searchQuery,
+        transaction_id: transaction.id,
+        customer_name: transaction.customer_name,
+        matchesSearch
+      })
+    }
+    
+    if (advancedFilters.customerId > 0) {
+      console.log('🎯 거래처 필터링:', {
+        filter_customerId: advancedFilters.customerId,
+        transaction_id: transaction.id,
+        transaction_customerId: transaction.customer_id,
+        customer_name: transaction.customer_name,
+        matchesCustomer
+      })
+    }
+    
     return matchesType && matchesDateFrom && matchesDateTo && 
            matchesCustomer && matchesSearch && matchesMinAmount && matchesMaxAmount
   })
@@ -162,14 +194,14 @@ export default function Transactions() {
     })
   }, [filteredTransactions, sortBy, sortOrder])
 
-  // 통계 계산
+  // 통계 계산 (필터링된 데이터 기준) 🎯
   const stats = {
-    total: transactions?.length || 0,
-    sales: transactions?.filter(t => t.transaction_type === 'sales').length || 0,
-    purchase: transactions?.filter(t => t.transaction_type === 'purchase').length || 0,
-    totalSalesAmount: transactions?.filter(t => t.transaction_type === 'sales')
+    total: filteredTransactions?.length || 0,
+    sales: filteredTransactions?.filter(t => t.transaction_type === 'sales').length || 0,
+    purchase: filteredTransactions?.filter(t => t.transaction_type === 'purchase').length || 0,
+    totalSalesAmount: filteredTransactions?.filter(t => t.transaction_type === 'sales')
       .reduce((sum, t) => sum + t.total_amount, 0) || 0,
-    totalPurchaseAmount: transactions?.filter(t => t.transaction_type === 'purchase')
+    totalPurchaseAmount: filteredTransactions?.filter(t => t.transaction_type === 'purchase')
       .reduce((sum, t) => sum + t.total_amount, 0) || 0
   }
 
@@ -350,6 +382,85 @@ export default function Transactions() {
           {/* 고급 검색 영역 */}
           {showAdvancedSearch && (
             <div className="mt-4 pt-4 border-t border-gray-200">
+              {/* 날짜 빠른 선택 버튼 🎉 */}
+              <div className="mb-4">
+                <label className="block text-xs font-medium text-gray-700 mb-2">
+                  빠른 기간 선택
+                </label>
+                <div className="flex flex-wrap gap-2">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      const today = new Date().toISOString().split('T')[0]
+                      setAdvancedFilters(prev => ({ ...prev, dateFrom: today, dateTo: today }))
+                    }}
+                    className="px-3 py-1.5 text-sm bg-white border border-gray-300 rounded hover:bg-gray-50"
+                  >
+                    📅 오늘
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      const today = new Date()
+                      const dayOfWeek = today.getDay()
+                      const monday = new Date(today)
+                      monday.setDate(today.getDate() - (dayOfWeek === 0 ? 6 : dayOfWeek - 1))
+                      const sunday = new Date(monday)
+                      sunday.setDate(monday.getDate() + 6)
+                      setAdvancedFilters(prev => ({
+                        ...prev,
+                        dateFrom: monday.toISOString().split('T')[0],
+                        dateTo: sunday.toISOString().split('T')[0]
+                      }))
+                    }}
+                    className="px-3 py-1.5 text-sm bg-white border border-gray-300 rounded hover:bg-gray-50"
+                  >
+                    🗓️ 이번 주
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      const today = new Date()
+                      const firstDay = new Date(today.getFullYear(), today.getMonth(), 1)
+                      const lastDay = new Date(today.getFullYear(), today.getMonth() + 1, 0)
+                      setAdvancedFilters(prev => ({
+                        ...prev,
+                        dateFrom: firstDay.toISOString().split('T')[0],
+                        dateTo: lastDay.toISOString().split('T')[0]
+                      }))
+                    }}
+                    className="px-3 py-1.5 text-sm bg-white border border-gray-300 rounded hover:bg-gray-50"
+                  >
+                    📆 이번 달
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      const today = new Date()
+                      const firstDay = new Date(today.getFullYear(), today.getMonth() - 1, 1)
+                      const lastDay = new Date(today.getFullYear(), today.getMonth(), 0)
+                      setAdvancedFilters(prev => ({
+                        ...prev,
+                        dateFrom: firstDay.toISOString().split('T')[0],
+                        dateTo: lastDay.toISOString().split('T')[0]
+                      }))
+                    }}
+                    className="px-3 py-1.5 text-sm bg-white border border-gray-300 rounded hover:bg-gray-50"
+                  >
+                    📅 지난 달
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setAdvancedFilters(prev => ({ ...prev, dateFrom: '', dateTo: '' }))
+                    }}
+                    className="px-3 py-1.5 text-sm bg-white border border-gray-300 rounded hover:bg-gray-50"
+                  >
+                    ♻️ 전체 기간
+                  </button>
+                </div>
+              </div>
+              
               <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
                 <div>
                   <label className="block text-xs font-medium text-gray-700 mb-1">
@@ -475,10 +586,11 @@ export default function Transactions() {
                         </td>
                       </tr>
                     ) : (
-                      sortedTransactions.map((transaction: TransactionWithItems) => (
+                      sortedTransactions.map((transaction: TransactionWithItems, index: number) => (
                         <TransactionExpandableRow
                           key={transaction.id}
                           transaction={transaction}
+                          displayNumber={transaction.id}  // 🎯 실제 거래 ID 표시
                           isExpanded={isExpanded(transaction.id!)}
                           onToggle={() => toggleRow(transaction.id!)}
                           onEdit={() => handleEditTransaction(transaction)}
@@ -497,6 +609,7 @@ export default function Transactions() {
         <TransactionModal 
           isOpen={isModalOpen}
           onClose={() => {
+            console.log('🚪 모달 닫기')
             setIsModalOpen(false)
             setPreSelectedCustomerId(0)
           }}
@@ -509,7 +622,21 @@ export default function Transactions() {
       <PageSidebar>
         <TransactionsSidebarContent 
           customers={customers}
-          onCustomerClick={(customerId) => setAdvancedFilters(prev => ({ ...prev, customerId }))}
+          searchTerm={sidebarSearchTerm}
+          onSearchChange={(term) => {
+            console.log('🔍 사이드바 검색어 변경:', term)
+            setSidebarSearchTerm(term)
+            // 메인 검색어도 업데이트
+            setAdvancedFilters(prev => ({ ...prev, searchQuery: term }))
+          }}
+          onCustomerClick={(customerId) => {
+            console.log('🎯 거래처 클릭:', customerId)
+            const customer = customers?.find(c => c.id === customerId)
+            if (customer) {
+              // 메인 페이지 검색어만 업데이트 (사이드바는 그대로)
+              setAdvancedFilters(prev => ({ ...prev, searchQuery: customer.name, customerId: 0 }))
+            }
+          }}
           onAddTransactionWithCustomer={handleAddTransactionWithCustomer}
           onFilterChange={handleSidebarFilterChange}
         />
