@@ -5,7 +5,7 @@ import type { TransactionWithItems, Company, Customer } from '../../types'
 import { formatCurrency } from '../utils'
 
 /**
- * 폰트 로드를 보장하는 함수
+ * 테스트 버전 2: scaleX 0.90
  */
 async function ensureFontsLoaded(): Promise<void> {
   if (document.fonts && document.fonts.ready) {
@@ -14,7 +14,6 @@ async function ensureFontsLoaded(): Promise<void> {
   return new Promise(resolve => setTimeout(resolve, 200))
 }
 
-// HTML 기반 PDF 생성 (최고 설정)
 export async function generateInvoicePDF(
   transaction: TransactionWithItems,
   company: Company,
@@ -30,29 +29,27 @@ export async function generateInvoicePDF(
   container.style.background = 'white'
   document.body.appendChild(container)
 
-  // 상단부
   const topSection = createInvoiceHTML(transaction, company, customer, 'supplier')
   container.innerHTML = topSection
   await new Promise(resolve => setTimeout(resolve, 100))
 
   const topCanvas = await html2canvas(container, {
-    scale: 3,              // 🎯 최고 해상도
+    scale: 4,
     useCORS: true,
     logging: false,
     backgroundColor: '#ffffff',
     allowTaint: false,
     imageTimeout: 0,
-    windowWidth: 794,      // 🎯 정확한 픽셀 크기
+    windowWidth: 794,
     windowHeight: 1123
   })
 
-  // 하단부
   const bottomSection = createInvoiceHTML(transaction, company, customer, 'customer')
   container.innerHTML = bottomSection
   await new Promise(resolve => setTimeout(resolve, 100))
 
   const bottomCanvas = await html2canvas(container, {
-    scale: 3,
+    scale: 4,
     useCORS: true,
     logging: false,
     backgroundColor: '#ffffff',
@@ -84,7 +81,7 @@ export async function generateInvoicePDF(
   document.body.removeChild(container)
 
   if (action === 'download') {
-    const fileName = `거래명세서_${customer?.name || '거래처'}_${transaction.transaction_date}.pdf`
+    const fileName = `거래명세서_v2_${customer?.name || '거래처'}_${transaction.transaction_date}.pdf`
     doc.save(fileName)
   } else if (action === 'print') {
     doc.autoPrint()
@@ -94,7 +91,6 @@ export async function generateInvoicePDF(
   return doc
 }
 
-// HTML 템플릿 (transform으로 폰트 압축)
 function createInvoiceHTML(
   transaction: TransactionWithItems,
   company: Company,
@@ -116,8 +112,8 @@ function createInvoiceHTML(
       box-sizing: border-box;
       -webkit-font-smoothing: antialiased;
       -moz-osx-font-smoothing: grayscale;
-      transform: scaleX(0.65);
-      
+      transform: scaleX(0.90);
+      transform-origin: left top;
     ">
       <!-- 제목 -->
       <div style="text-align: center; margin-bottom: 6mm;">
