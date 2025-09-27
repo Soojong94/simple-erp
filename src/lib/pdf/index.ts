@@ -238,8 +238,6 @@ function createInvoiceHTML(
       </div>
 
       <div style="
-        display: flex; 
-        justify-content: space-between; 
         margin-bottom: 5mm; 
         padding: 3mm 6mm; 
         background: #f5f7fa; 
@@ -247,9 +245,6 @@ function createInvoiceHTML(
       ">
         <div style="font-size: 10pt; font-weight: 700;">
           <strong style="color: ${color};">거래일:</strong> ${transaction.transaction_date}
-        </div>
-        <div style="font-size: 10pt; font-weight: 700;">
-          <strong style="color: ${color};">거래번호:</strong> #${transaction.id}
         </div>
       </div>
 

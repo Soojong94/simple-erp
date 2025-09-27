@@ -16,6 +16,8 @@ export default function CompanyInfoSection({
 }: CompanyInfoSectionProps) {
   const queryClient = useQueryClient()
   const [isEditing, setIsEditing] = useState(false)
+  const [stampImage, setStampImage] = useState<string>('')
+  const [stampPreview, setStampPreview] = useState<string>('')
   const [formData, setFormData] = useState({
     name: '',
     business_number: '',
@@ -28,6 +30,15 @@ export default function CompanyInfoSection({
     tax_invoice_cert_file: '',
     default_invoice_memo: ''  // 🆕 기본 메모 추가
   })
+
+  // 도장 이미지 불러오기
+  useEffect(() => {
+    const savedStamp = localStorage.getItem('simple-erp-stamp-image')
+    if (savedStamp) {
+      setStampImage(savedStamp)
+      setStampPreview(savedStamp)
+    }
+  }, [])
 
   useEffect(() => {
     if (company) {
@@ -75,6 +86,46 @@ export default function CompanyInfoSection({
       ...prev,
       [e.target.name]: e.target.value
     }))
+  }
+
+  // 도장 이미지 업로드 핸들러
+  const handleStampUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0]
+    if (!file) return
+
+    // 파일 크기 체크 (1MB 제한)
+    if (file.size > 1024 * 1024) {
+      onMessage('이미지 크기는 1MB 이하여야 합니다.', 'error')
+      return
+    }
+
+    // 파일 형식 체크
+    if (!file.type.startsWith('image/')) {
+      onMessage('이미지 파일만 업로드 가능합니다.', 'error')
+      return
+    }
+
+    const reader = new FileReader()
+    reader.onload = (event) => {
+      const base64 = event.target?.result as string
+      setStampImage(base64)
+      setStampPreview(base64)
+      
+      // localStorage에 즉시 저장
+      localStorage.setItem('simple-erp-stamp-image', base64)
+      
+      onMessage('도장 이미지가 저장되었습니다. 거래명세서에 자동으로 표시됩니다.', 'success')
+    }
+    reader.readAsDataURL(file)
+  }
+
+  // 도장 이미지 제거
+  const handleStampRemove = () => {
+    setStampImage('')
+    setStampPreview('')
+    localStorage.removeItem('simple-erp-stamp-image')
+    
+    onMessage('도장 이미지가 제거되었습니다.', 'success')
   }
 
   const handleCancel = () => {
@@ -253,6 +304,76 @@ export default function CompanyInfoSection({
             )}
           </form>
         )}
+
+        {/* 🆕 도장 이미지 업로드 섹션 */}
+        <div className="mt-8 pt-8 border-t border-gray-200">
+          <h3 className="text-lg font-medium text-gray-900 mb-4">
+            📷 사업자 도장 이미지
+          </h3>
+          
+          <div className="bg-gray-50 p-6 rounded-lg">
+            <div className="flex items-start space-x-6">
+              {/* 미리보기 */}
+              <div className="flex-shrink-0">
+                {stampPreview ? (
+                  <div className="relative">
+                    <img 
+                      src={stampPreview} 
+                      alt="도장 미리보기" 
+                      className="w-20 h-20 rounded-full object-cover border-2 border-gray-300"
+                    />
+                    <button
+                      onClick={handleStampRemove}
+                      className="absolute -top-2 -right-2 bg-red-500 text-white rounded-full w-6 h-6 flex items-center justify-center hover:bg-red-600"
+                      title="도장 이미지 제거"
+                    >
+                      ✕
+                    </button>
+                  </div>
+                ) : (
+                  <div className="w-20 h-20 rounded-full bg-gray-200 flex items-center justify-center text-gray-400">
+                    <span className="text-3xl">📷</span>
+                  </div>
+                )}
+              </div>
+
+              {/* 업로드 영역 */}
+              <div className="flex-1">
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  도장 이미지 업로드
+                </label>
+                <p className="text-xs text-gray-500 mb-3">
+                  거래명세서 공급자 정보란에 표시될 도장 이미지를 업로드하세요.
+                </p>
+                <div className="flex items-center space-x-3">
+                  <label className="cursor-pointer inline-flex items-center px-4 py-2 border border-gray-300 shadow-sm text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50">
+                    <input
+                      type="file"
+                      accept="image/png,image/jpeg,image/jpg"
+                      onChange={handleStampUpload}
+                      className="hidden"
+                    />
+                    {stampPreview ? '이미지 변경' : '이미지 선택'}
+                  </label>
+                  {stampPreview && (
+                    <button
+                      onClick={handleStampRemove}
+                      className="inline-flex items-center px-4 py-2 border border-red-300 shadow-sm text-sm font-medium rounded-md text-red-700 bg-white hover:bg-red-50"
+                    >
+                      제거
+                    </button>
+                  )}
+                </div>
+                <ul className="mt-3 text-xs text-gray-500 space-y-1">
+                  <li>• 권장: PNG 형식 (투명 배경)</li>
+                  <li>• 권장 크기: 200×200px 이상</li>
+                  <li>• 최대 용량: 1MB</li>
+                  <li>• 원형 또는 정사각형 도장 이미지</li>
+                </ul>
+              </div>
+            </div>
+          </div>
+        </div>
       </div>
     </div>
   )
