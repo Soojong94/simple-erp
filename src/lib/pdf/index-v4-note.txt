@@ -1,4 +1,0 @@
-// 버전 4: font-stretch 사용
-// transform 제거
-// font-stretch: condensed; 또는 ultra-condensed; 추가
-// 브라우저 지원 제한적일 수 있음
