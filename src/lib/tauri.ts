@@ -1,5 +1,5 @@
 import { invoke } from '@tauri-apps/api/tauri'
-import type { Customer, Product, TransactionWithItems, TaxInvoice, Company, CustomerProductPrice, PriceHistory } from '../types'
+import type { Customer, Product, TransactionWithItems, TaxInvoice, Company, CustomerProductPrice, PriceHistory, ProductInventory, StockMovement, StockLot, InventoryStats } from '../types'
 import { debounce } from './utils'
 import { exportBackup, shouldBackupToday, isAutoBackupEnabled } from './backup'
 
@@ -748,6 +748,87 @@ export const inventoryAPI = {
           const ratioB = b.current_stock / b.safety_stock
           return ratioA - ratioB
         })
+    }
+  },
+
+  // 재고 업데이트 (Inventory.tsx에서 사용)
+  updateInventory: async (inventory: ProductInventory) => {
+    if (isTauri()) {
+      return invoke<ProductInventory>('update_inventory', { inventory })
+    } else {
+      await delay(300)
+      const inventories = getFromStorage<ProductInventory[]>(STORAGE_KEYS.PRODUCT_INVENTORY, [])
+      const index = inventories.findIndex(item => item.product_id === inventory.product_id)
+      
+      if (index >= 0) {
+        // 기존 재고 업데이트
+        inventories[index] = {
+          ...inventories[index],
+          ...inventory,
+          last_updated: new Date().toISOString()
+        }
+      } else {
+        // 새로운 재고 추가
+        inventories.push({
+          id: getNextId('inventory'),
+          ...inventory,
+          last_updated: new Date().toISOString()
+        })
+      }
+      
+      setToStorage(STORAGE_KEYS.PRODUCT_INVENTORY, inventories)
+      backupTrigger.trigger()
+      
+      return inventory
+    }
+  },
+
+  // 유통기한 지난 로트 처리
+  processExpiredLots: async () => {
+    if (isTauri()) {
+      return invoke<number>('process_expired_lots')
+    } else {
+      await delay(300)
+      const lots = getFromStorage<StockLot[]>(STORAGE_KEYS.STOCK_LOTS, [])
+      const today = new Date()
+      today.setHours(0, 0, 0, 0)
+      
+      let expiredCount = 0
+      
+      // 유통기한 지난 로트 처리
+      for (const lot of lots) {
+        const expiryDate = new Date(lot.expiry_date)
+        expiryDate.setHours(0, 0, 0, 0)
+        
+        if (
+          lot.status === 'active' &&
+          lot.remaining_quantity > 0 &&
+          expiryDate < today
+        ) {
+          lot.status = 'expired'
+          expiredCount++
+          
+          // 재고 이동 이력 추가 (폐기)
+          await inventoryAPI.createMovement({
+            product_id: lot.product_id,
+            movement_type: 'expired',
+            quantity: lot.remaining_quantity,
+            lot_number: lot.lot_number,
+            expiry_date: lot.expiry_date,
+            traceability_number: lot.traceability_number,
+            notes: '유통기한 만료 자동 폐기',
+            reference_type: 'adjustment'
+          })
+          
+          // 남은 수량 0으로 설정
+          lot.remaining_quantity = 0
+        }
+      }
+      
+      setToStorage(STORAGE_KEYS.STOCK_LOTS, lots)
+      backupTrigger.trigger()
+      
+      return expiredCount
     }
   },
 

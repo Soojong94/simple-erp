@@ -1,6 +1,6 @@
 import { useState, useEffect, useMemo } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
-import { transactionAPI, customerAPI, productAPI } from '../../lib/tauri'
+import { transactionAPI, customerAPI, productAPI, inventoryAPI } from '../../lib/tauri'
 import { getCustomerProductExclusions, excludeCustomerProduct, includeCustomerProduct } from '../../lib/utils'
 import TransactionBasicInfo from './TransactionBasicInfo'
 import TransactionItemsList from './TransactionItemsList'
@@ -175,25 +175,145 @@ export default function TransactionModal({
 
   // Mutations
   const createMutation = useMutation({
-    mutationFn: transactionAPI.create,
+    mutationFn: async (data: any) => {
+      // 1. 거래 생성
+      const newTransaction = await transactionAPI.create(data)
+      
+      // 2. 재고 처리
+      if (newTransaction) {
+        // 매입(구매) 거래
+        if (data.transaction_type === 'purchase') {
+          // 상품 별 입고 처리
+          for (const item of data.items) {
+            // 로트 번호 생성
+            const today = new Date().toISOString().split('T')[0]
+            const randomCode = Math.random().toString(36).substr(2, 4).toUpperCase()
+            const lotNumber = `LOT-${today.replace(/-/g, '')}-${item.product_id}-${randomCode}`
+            
+            // 유통기한 계산 (카테고리별 기본값 적용)
+            const product = products?.find(p => p.id === item.product_id)
+            let expiryDays = 7 // 기본값
+            
+            if (product?.category === '돼지고기') expiryDays = 7
+            else if (product?.category === '소고기') expiryDays = 10
+            else if (product?.category === '닭고기' || product?.category === '오리고기') expiryDays = 5
+            
+            const expiryDate = new Date(data.transaction_date)
+            expiryDate.setDate(expiryDate.getDate() + expiryDays)
+            
+            // 로트 생성
+            await inventoryAPI.createLot({
+              product_id: item.product_id,
+              lot_number: lotNumber,
+              initial_quantity: item.quantity,
+              remaining_quantity: item.quantity,
+              expiry_date: expiryDate.toISOString().split('T')[0],
+              traceability_number: item.traceability_number,
+              supplier_id: data.customer_id,
+              supplier_name: customers?.find(c => c.id === data.customer_id)?.name,
+              status: 'active'
+            })
+            
+            // 입고 이동 추가
+            await inventoryAPI.createMovement({
+              product_id: item.product_id,
+              movement_type: 'in',
+              quantity: item.quantity,
+              unit_price: item.unit_price,
+              lot_number: lotNumber,
+              expiry_date: expiryDate.toISOString().split('T')[0],
+              traceability_number: item.traceability_number,
+              transaction_id: newTransaction.id,
+              reference_type: 'purchase',
+              reference_id: newTransaction.id,
+              notes: `매입 거래 ${newTransaction.id}`,
+              product_name: item.product_name
+            })
+          }
+        }
+        
+        // 매출(판매) 거래
+        else if (data.transaction_type === 'sales') {
+          // 상품 별 출고 처리 (FIFO 원칙)
+          for (const item of data.items) {
+            // 해당 상품의 활성 로트 조회
+            const activeLots = await inventoryAPI.getActiveLots(item.product_id)
+            
+            // 출고할 총량
+            let remainingQty = item.quantity
+            
+            for (const lot of activeLots) {
+              if (remainingQty <= 0) break
+              
+              // 출고할 수량 (현재 로트의 남은 수량과 출고할 남은 수량 중 작은 값)
+              const outQty = Math.min(remainingQty, lot.remaining_quantity)
+              
+              // 로트 업데이트
+              await inventoryAPI.updateLot(lot.id!, {
+                remaining_quantity: lot.remaining_quantity - outQty,
+                status: lot.remaining_quantity - outQty <= 0 ? 'finished' : 'active'
+              })
+              
+              // 출고 이동 추가
+              await inventoryAPI.createMovement({
+                product_id: item.product_id,
+                movement_type: 'out',
+                quantity: outQty,
+                unit_price: item.unit_price,
+                lot_number: lot.lot_number,
+                expiry_date: lot.expiry_date,
+                traceability_number: item.traceability_number || lot.traceability_number,
+                transaction_id: newTransaction.id,
+                reference_type: 'sales',
+                reference_id: newTransaction.id,
+                notes: `매출 거래 ${newTransaction.id}`,
+                product_name: item.product_name
+              })
+              
+              remainingQty -= outQty
+            }
+            
+            if (remainingQty > 0) {
+              console.warn(`경고: 재고가 부족합니다. 부족량: ${remainingQty}kg, 상품: ${item.product_name}`)
+            }
+          }
+        }
+        
+        // 재고 통계 업데이트
+        await inventoryAPI.getStats()
+      }
+      
+      return newTransaction
+    },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['transactions'] })
+      queryClient.invalidateQueries({ queryKey: ['inventory'] })
+      queryClient.invalidateQueries({ queryKey: ['inventory-stats'] })
+      queryClient.invalidateQueries({ queryKey: ['stock-movements'] })
+      queryClient.invalidateQueries({ queryKey: ['stock-lots'] })
       handleClose()
       alert('거래가 추가되었습니다.')
     },
-    onError: () => {
+    onError: (error) => {
+      console.error('거래 추가 오류:', error)
       alert('거래 추가 중 오류가 발생했습니다.')
     }
   })
 
   const updateMutation = useMutation({
-    mutationFn: ({ id, data }: { id: number, data: any }) => transactionAPI.update(id, data),
+    mutationFn: async ({ id, data }: { id: number, data: any }) => {
+      // 1. 거래 수정 (현재는 재고에 영향 없음 - 향후 구현)
+      return await transactionAPI.update(id, data)
+    },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['transactions'] })
+      queryClient.invalidateQueries({ queryKey: ['inventory'] })
+      queryClient.invalidateQueries({ queryKey: ['inventory-stats'] })
       handleClose()
       alert('거래가 수정되었습니다.')
     },
-    onError: () => {
+    onError: (error) => {
+      console.error('거래 수정 오류:', error)
       alert('거래 수정 중 오류가 발생했습니다.')
     }
   })

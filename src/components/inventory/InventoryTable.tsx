@@ -1,4 +1,4 @@
-import { useState, useMemo } from 'react'
+import { useState, useMemo, Fragment } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { inventoryAPI, productAPI } from '../../lib/tauri'
 import { formatNumber, cn } from '../../lib/utils'
@@ -189,9 +189,8 @@ export default function InventoryTable({ onStockMovement }: InventoryTableProps)
                 const productMovements = movements.filter(m => m.product_id === item.id)
 
                 return (
-                  <>
+                  <Fragment key={item.id}>
                     <tr
-                      key={item.id}
                       className="hover:bg-gray-50 cursor-pointer"
                       onClick={() => toggleRow(item.id!)}
                     >
@@ -297,7 +296,7 @@ export default function InventoryTable({ onStockMovement }: InventoryTableProps)
                         </td>
                       </tr>
                     )}
-                  </>
+                  </Fragment>
                 )
               })
             )}

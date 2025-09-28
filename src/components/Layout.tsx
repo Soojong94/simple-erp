@@ -7,7 +7,8 @@ import {
   ShoppingCart, 
   FileText, 
   BarChart3, 
-  Settings 
+  Settings,
+  Archive
 } from 'lucide-react'
 import { clsx } from 'clsx'
 
@@ -19,6 +20,7 @@ const navigation = [
   { name: '대시보드', href: '/', icon: Home },
   { name: '거래처 관리', href: '/customers', icon: Users },
   { name: '상품 관리', href: '/products', icon: Package },
+  { name: '재고 관리', href: '/inventory', icon: Archive },
   { name: '거래 관리', href: '/transactions', icon: ShoppingCart },
   { name: '보고서', href: '/reports', icon: BarChart3 },
   { name: '설정', href: '/settings', icon: Settings },
