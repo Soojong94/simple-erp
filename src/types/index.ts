@@ -138,3 +138,61 @@ export interface SortConfig {
   sortBy: string
   sortOrder: SortOrder
 }
+
+// ============= 재고 관리 시스템 타입 정의 =============
+
+// 재고 현황
+export interface ProductInventory {
+  id?: number
+  product_id: number
+  product_name?: string          // 조인용
+  current_stock: number           // 현재 재고 (kg)
+  safety_stock: number            // 안전 재고 (kg)
+  location?: 'frozen' | 'cold' | 'room'  // 냉동/냉장/상온
+  last_updated: string
+}
+
+// 재고 이동 이력
+export interface StockMovement {
+  id?: number
+  product_id: number
+  product_name?: string
+  movement_type: 'in' | 'out' | 'adjust' | 'expired'  // 입고/출고/조정/폐기
+  quantity: number                // 수량 (kg)
+  unit_price?: number             // 단가 (입고 시)
+  lot_number?: string             // 로트번호
+  expiry_date?: string            // 유통기한
+  traceability_number?: string   // 이력번호
+  transaction_id?: number         // 연결된 거래 ID
+  reference_type?: 'purchase' | 'sales' | 'manual' | 'adjustment'
+  reference_id?: number           // 참조 ID
+  notes?: string
+  created_at: string
+  created_by?: string             // 작업자
+}
+
+// 재고 로트 관리
+export interface StockLot {
+  id?: number
+  product_id: number
+  product_name?: string
+  lot_number: string              // LOT-20250926-001
+  initial_quantity: number        // 초기 입고량
+  remaining_quantity: number      // 남은 수량
+  expiry_date: string            // 유통기한
+  traceability_number?: string   // 이력번호
+  supplier_id?: number           // 공급업체 ID
+  supplier_name?: string         // 공급업체명
+  status: 'active' | 'expired' | 'finished'  // 활성/만료/소진
+  created_at: string
+}
+
+// 재고 통계
+export interface InventoryStats {
+  totalProducts: number           // 총 상품 수
+  totalStock: number              // 총 재고량 (kg)
+  lowStockCount: number          // 재고 부족 상품 수
+  expiringCount: number          // 유통기한 임박 상품 수 (3일 이내)
+  totalValue: number             // 총 재고 금액
+  expiredCount: number           // 만료된 로트 수
+}

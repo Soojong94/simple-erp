@@ -15,7 +15,12 @@ const STORAGE_KEYS = {
   TRANSACTIONS: 'simple-erp-transactions',
   CUSTOMER_PRODUCT_PRICES: 'simple-erp-customer-product-prices',
   COMPANY: 'simple-erp-company',
-  NEXT_IDS: 'simple-erp-next-ids'
+  NEXT_IDS: 'simple-erp-next-ids',
+  // 재고 관리 시스템
+  PRODUCT_INVENTORY: 'simple-erp-product-inventory',
+  STOCK_MOVEMENTS: 'simple-erp-stock-movements',
+  STOCK_LOTS: 'simple-erp-stock-lots',
+  INVENTORY_SETTINGS: 'simple-erp-inventory-settings'
 } as const
 
 // localStorage 헬퍼 함수들
@@ -433,6 +438,395 @@ export const transactionAPI = {
     }
   }
 }
+
+// ============= 재고 관리 시스템 API =============
+
+export const inventoryAPI = {
+  // 재고 현황 관리
+  getInventory: async () => {
+    if (isTauri()) {
+      return invoke<ProductInventory[]>('get_inventory')
+    } else {
+      await delay(300)
+      const inventory = getFromStorage<ProductInventory[]>(STORAGE_KEYS.PRODUCT_INVENTORY, [])
+      // 상품명 추가
+      const products = getFromStorage<Product[]>(STORAGE_KEYS.PRODUCTS, [])
+      return inventory.map(inv => {
+        const product = products.find(p => p.id === inv.product_id)
+        return {
+          ...inv,
+          product_name: product?.name || '알 수 없음'
+        }
+      })
+    }
+  },
+
+  getByProductId: async (productId: number) => {
+    if (isTauri()) {
+      return invoke<ProductInventory>('get_inventory_by_product', { product_id: productId })
+    } else {
+      await delay(200)
+      const inventory = getFromStorage<ProductInventory[]>(STORAGE_KEYS.PRODUCT_INVENTORY, [])
+      const item = inventory.find(inv => inv.product_id === productId)
+      if (!item) {
+        // 초기화
+        const newInventory: ProductInventory = {
+          id: getNextId('inventory'),
+          product_id: productId,
+          current_stock: 0,
+          safety_stock: 30, // 기본 안전재고 30kg
+          location: 'cold',
+          last_updated: new Date().toISOString()
+        }
+        inventory.push(newInventory)
+        setToStorage(STORAGE_KEYS.PRODUCT_INVENTORY, inventory)
+        return newInventory
+      }
+      return item
+    }
+  },
+
+  updateStock: async (productId: number, quantity: number, location?: 'frozen' | 'cold' | 'room') => {
+    if (isTauri()) {
+      return invoke<ProductInventory>('update_stock', { product_id: productId, quantity, location })
+    } else {
+      await delay(300)
+      const inventory = getFromStorage<ProductInventory[]>(STORAGE_KEYS.PRODUCT_INVENTORY, [])
+      const index = inventory.findIndex(inv => inv.product_id === productId)
+      
+      if (index >= 0) {
+        inventory[index] = {
+          ...inventory[index],
+          current_stock: quantity,
+          location: location || inventory[index].location,
+          last_updated: new Date().toISOString()
+        }
+      } else {
+        // 새로 생성
+        inventory.push({
+          id: getNextId('inventory'),
+          product_id: productId,
+          current_stock: quantity,
+          safety_stock: 30,
+          location: location || 'cold',
+          last_updated: new Date().toISOString()
+        })
+      }
+      
+      setToStorage(STORAGE_KEYS.PRODUCT_INVENTORY, inventory)
+      return inventory[index >= 0 ? index : inventory.length - 1]
+    }
+  },
+
+  // 재고 이동 관리
+  createMovement: async (movement: Omit<StockMovement, 'id' | 'created_at'>) => {
+    if (isTauri()) {
+      return invoke<StockMovement>('create_stock_movement', { movement })
+    } else {
+      await delay(400)
+      const movements = getFromStorage<StockMovement[]>(STORAGE_KEYS.STOCK_MOVEMENTS, [])
+      const newMovement: StockMovement = {
+        ...movement,
+        id: getNextId('movement'),
+        created_at: new Date().toISOString()
+      }
+      movements.push(newMovement)
+      setToStorage(STORAGE_KEYS.STOCK_MOVEMENTS, movements)
+      
+      // 재고 업데이트
+      const inventory = getFromStorage<ProductInventory[]>(STORAGE_KEYS.PRODUCT_INVENTORY, [])
+      const invIndex = inventory.findIndex(inv => inv.product_id === movement.product_id)
+      
+      if (invIndex >= 0) {
+        const currentStock = inventory[invIndex].current_stock
+        if (movement.movement_type === 'in') {
+          inventory[invIndex].current_stock = currentStock + movement.quantity
+        } else if (movement.movement_type === 'out') {
+          inventory[invIndex].current_stock = Math.max(0, currentStock - movement.quantity)
+        } else if (movement.movement_type === 'adjust') {
+          inventory[invIndex].current_stock = movement.quantity
+        }
+        inventory[invIndex].last_updated = new Date().toISOString()
+        setToStorage(STORAGE_KEYS.PRODUCT_INVENTORY, inventory)
+      } else {
+        // 새 재고 항목 생성
+        const newStock = movement.movement_type === 'in' ? movement.quantity : 0
+        inventory.push({
+          id: getNextId('inventory'),
+          product_id: movement.product_id,
+          current_stock: newStock,
+          safety_stock: 30,
+          location: 'cold',
+          last_updated: new Date().toISOString()
+        })
+        setToStorage(STORAGE_KEYS.PRODUCT_INVENTORY, inventory)
+      }
+      
+      backupTrigger.trigger()
+      return newMovement
+    }
+  },
+
+  getMovementHistory: async (productId?: number, limit: number = 50) => {
+    if (isTauri()) {
+      return invoke<StockMovement[]>('get_movement_history', { product_id: productId, limit })
+    } else {
+      await delay(300)
+      let movements = getFromStorage<StockMovement[]>(STORAGE_KEYS.STOCK_MOVEMENTS, [])
+      
+      // 상품명 추가
+      const products = getFromStorage<Product[]>(STORAGE_KEYS.PRODUCTS, [])
+      movements = movements.map(mov => {
+        const product = products.find(p => p.id === mov.product_id)
+        return {
+          ...mov,
+          product_name: product?.name || '알 수 없음'
+        }
+      })
+      
+      if (productId) {
+        movements = movements.filter(m => m.product_id === productId)
+      }
+      
+      // 최신순 정렬
+      movements.sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())
+      
+      return movements.slice(0, limit)
+    }
+  },
+
+  // 로트 관리
+  createLot: async (lot: Omit<StockLot, 'id' | 'created_at'>) => {
+    if (isTauri()) {
+      return invoke<StockLot>('create_stock_lot', { lot })
+    } else {
+      await delay(400)
+      const lots = getFromStorage<StockLot[]>(STORAGE_KEYS.STOCK_LOTS, [])
+      const newLot: StockLot = {
+        ...lot,
+        id: getNextId('lot'),
+        created_at: new Date().toISOString()
+      }
+      lots.push(newLot)
+      setToStorage(STORAGE_KEYS.STOCK_LOTS, lots)
+      backupTrigger.trigger()
+      return newLot
+    }
+  },
+
+  getActiveLots: async (productId: number) => {
+    if (isTauri()) {
+      return invoke<StockLot[]>('get_active_lots', { product_id: productId })
+    } else {
+      await delay(300)
+      const lots = getFromStorage<StockLot[]>(STORAGE_KEYS.STOCK_LOTS, [])
+      return lots
+        .filter(lot => 
+          lot.product_id === productId && 
+          lot.status === 'active' &&
+          lot.remaining_quantity > 0
+        )
+        .sort((a, b) => new Date(a.expiry_date).getTime() - new Date(b.expiry_date).getTime()) // FIFO: 유통기한 빠른 순
+    }
+  },
+
+  getExpiringLots: async (days: number = 3) => {
+    if (isTauri()) {
+      return invoke<StockLot[]>('get_expiring_lots', { days })
+    } else {
+      await delay(300)
+      const lots = getFromStorage<StockLot[]>(STORAGE_KEYS.STOCK_LOTS, [])
+      const products = getFromStorage<Product[]>(STORAGE_KEYS.PRODUCTS, [])
+      const customers = getFromStorage<Customer[]>(STORAGE_KEYS.CUSTOMERS, [])
+      
+      const cutoffDate = new Date()
+      cutoffDate.setDate(cutoffDate.getDate() + days)
+      
+      return lots
+        .filter(lot => {
+          const expiryDate = new Date(lot.expiry_date)
+          return lot.status === 'active' && 
+                 lot.remaining_quantity > 0 &&
+                 expiryDate <= cutoffDate &&
+                 expiryDate >= new Date()
+        })
+        .map(lot => {
+          const product = products.find(p => p.id === lot.product_id)
+          const supplier = customers.find(c => c.id === lot.supplier_id)
+          return {
+            ...lot,
+            product_name: product?.name || '알 수 없음',
+            supplier_name: supplier?.name || '-'
+          }
+        })
+        .sort((a, b) => new Date(a.expiry_date).getTime() - new Date(b.expiry_date).getTime())
+    }
+  },
+
+  updateLot: async (lotId: number, updates: { remaining_quantity?: number, status?: 'active' | 'expired' | 'finished' }) => {
+    if (isTauri()) {
+      return invoke<StockLot>('update_lot', { lot_id: lotId, updates })
+    } else {
+      await delay(300)
+      const lots = getFromStorage<StockLot[]>(STORAGE_KEYS.STOCK_LOTS, [])
+      const index = lots.findIndex(lot => lot.id === lotId)
+      
+      if (index >= 0) {
+        lots[index] = {
+          ...lots[index],
+          ...updates
+        }
+        
+        // 수량이 0이면 자동 소진 처리
+        if (lots[index].remaining_quantity === 0) {
+          lots[index].status = 'finished'
+        }
+        
+        setToStorage(STORAGE_KEYS.STOCK_LOTS, lots)
+        return lots[index]
+      }
+      
+      throw new Error('로트를 찾을 수 없습니다')
+    }
+  },
+
+  // 통계
+  getStats: async () => {
+    if (isTauri()) {
+      return invoke<InventoryStats>('get_inventory_stats')
+    } else {
+      await delay(300)
+      const inventory = getFromStorage<ProductInventory[]>(STORAGE_KEYS.PRODUCT_INVENTORY, [])
+      const lots = getFromStorage<StockLot[]>(STORAGE_KEYS.STOCK_LOTS, [])
+      const products = getFromStorage<Product[]>(STORAGE_KEYS.PRODUCTS, [])
+      
+      const cutoffDate = new Date()
+      cutoffDate.setDate(cutoffDate.getDate() + 3)
+      
+      const stats: InventoryStats = {
+        totalProducts: inventory.length,
+        totalStock: inventory.reduce((sum, inv) => sum + inv.current_stock, 0),
+        lowStockCount: inventory.filter(inv => inv.current_stock < inv.safety_stock).length,
+        expiringCount: lots.filter(lot => {
+          const expiryDate = new Date(lot.expiry_date)
+          return lot.status === 'active' && 
+                 lot.remaining_quantity > 0 &&
+                 expiryDate <= cutoffDate &&
+                 expiryDate >= new Date()
+        }).length,
+        totalValue: inventory.reduce((sum, inv) => {
+          const product = products.find(p => p.id === inv.product_id)
+          return sum + (inv.current_stock * (product?.unit_price || 0))
+        }, 0),
+        expiredCount: lots.filter(lot => lot.status === 'expired').length
+      }
+      
+      return stats
+    }
+  },
+
+  getLowStockProducts: async () => {
+    if (isTauri()) {
+      return invoke<ProductInventory[]>('get_low_stock_products')
+    } else {
+      await delay(300)
+      const inventory = getFromStorage<ProductInventory[]>(STORAGE_KEYS.PRODUCT_INVENTORY, [])
+      const products = getFromStorage<Product[]>(STORAGE_KEYS.PRODUCTS, [])
+      
+      return inventory
+        .filter(inv => inv.current_stock < inv.safety_stock)
+        .map(inv => {
+          const product = products.find(p => p.id === inv.product_id)
+          return {
+            ...inv,
+            product_name: product?.name || '알 수 없음'
+          }
+        })
+        .sort((a, b) => {
+          // 부족률이 높은 순 (현재재고/안전재고 비율이 낮은 순)
+          const ratioA = a.current_stock / a.safety_stock
+          const ratioB = b.current_stock / b.safety_stock
+          return ratioA - ratioB
+        })
+    }
+  },
+
+  // 거래 연동
+  processTransactionInventory: async (transaction: TransactionWithItems) => {
+    if (!transaction.items || transaction.items.length === 0) return
+    
+    for (const item of transaction.items) {
+      if (!item.product_id) continue
+      
+      if (transaction.transaction_type === 'purchase') {
+        // 매입 → 입고
+        await inventoryAPI.createMovement({
+          product_id: item.product_id,
+          movement_type: 'in',
+          quantity: item.quantity,
+          unit_price: item.unit_price,
+          transaction_id: transaction.id,
+          reference_type: 'purchase',
+          reference_id: transaction.id,
+          traceability_number: item.traceability_number,
+          notes: `매입 거래 자동 입고 - ${transaction.customer_name}`
+        })
+        
+        // 로트 생성 (유통기한: 입고일로부터 7일로 기본 설정)
+        const expiryDate = new Date()
+        expiryDate.setDate(expiryDate.getDate() + 7)
+        
+        await inventoryAPI.createLot({
+          product_id: item.product_id,
+          lot_number: `LOT-${new Date().toISOString().split('T')[0]}-${item.product_id}-${Math.random().toString(36).substr(2, 4).toUpperCase()}`,
+          initial_quantity: item.quantity,
+          remaining_quantity: item.quantity,
+          expiry_date: expiryDate.toISOString().split('T')[0],
+          traceability_number: item.traceability_number,
+          supplier_id: transaction.customer_id,
+          status: 'active'
+        })
+      } else if (transaction.transaction_type === 'sales') {
+        // 매출 → 출고 (FIFO)
+        const activeLots = await inventoryAPI.getActiveLots(item.product_id)
+        let remainingQty = item.quantity
+        
+        for (const lot of activeLots) {
+          if (remainingQty <= 0) break
+          
+          const deductQty = Math.min(remainingQty, lot.remaining_quantity)
+          
+          // 로트에서 차감
+          await inventoryAPI.updateLot(lot.id!, {
+            remaining_quantity: lot.remaining_quantity - deductQty
+          })
+          
+          // 재고 이동 기록
+          await inventoryAPI.createMovement({
+            product_id: item.product_id,
+            movement_type: 'out',
+            quantity: deductQty,
+            lot_number: lot.lot_number,
+            transaction_id: transaction.id,
+            reference_type: 'sales',
+            reference_id: transaction.id,
+            notes: `매출 거래 자동 출고 - ${transaction.customer_name} (LOT: ${lot.lot_number})`
+          })
+          
+          remainingQty -= deductQty
+        }
+        
+        // 재고 부족 경고
+        if (remainingQty > 0) {
+          console.warn(`경고: ${item.product_name}의 재고가 부족합니다. 요청: ${item.quantity}kg, 가용: ${item.quantity - remainingQty}kg`)
+        }
+      }
+    }
+  }
+}
+
+// 타입 추가
+import type { ProductInventory, StockMovement, StockLot, InventoryStats } from '../types'
 
 // 거래처별 상품 가격 API
 export const customerProductPriceAPI = {
