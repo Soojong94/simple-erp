@@ -3,11 +3,13 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { transactionAPI, customerAPI, productAPI } from '../lib/tauri'
 import { formatCurrency } from '../lib/utils'
 import { useExpandableTable } from '../hooks/useExpandableTable'
+import { usePagination } from '../hooks/usePagination'
 import TransactionModal from '../components/modals/TransactionModal'
 import TransactionExpandableRow from '../components/expandable/TransactionExpandableRow'
 import PageSidebar from '../components/sidebar/PageSidebar'
 import TransactionsSidebarContent from '../components/sidebar/TransactionsSidebarContent'
 import SortDropdown from '../components/SortDropdown'
+import Pagination from '../components/Pagination'
 import InvoicePreviewModal from '../components/invoice/InvoicePreviewModal'  // 🆕 추가
 import type { TransactionWithItems } from '../types'
 
@@ -204,6 +206,15 @@ export default function Transactions() {
       return sortOrder === 'asc' ? comparison : -comparison
     })
   }, [filteredTransactions, sortBy, sortOrder])
+
+  // 페이지네이션 적용
+  const pagination = usePagination(sortedTransactions, 50)
+  const { paginatedItems: paginatedTransactions } = pagination
+
+  // 필터 변경 시 페이지 초기화
+  useEffect(() => {
+    pagination.resetPage()
+  }, [filterType, advancedFilters])
 
   // 통계 계산 (필터링된 데이터 기준) 🎯
   const stats = {
@@ -597,11 +608,11 @@ export default function Transactions() {
                         </td>
                       </tr>
                     ) : (
-                      sortedTransactions.map((transaction: TransactionWithItems, index: number) => (
+                      paginatedTransactions.map((transaction: TransactionWithItems, index: number) => (
                         <TransactionExpandableRow
                           key={transaction.id}
                           transaction={transaction}
-                          displayNumber={index + 1}  // 🎯 필터링된 순번 표시
+                          displayNumber={pagination.startIndex + index}  // 🎯 페이지네이션 순번
                           isExpanded={isExpanded(transaction.id!)}
                           onToggle={() => toggleRow(transaction.id!)}
                           onEdit={() => handleEditTransaction(transaction)}
@@ -616,6 +627,21 @@ export default function Transactions() {
             </div>
           </div>
         </div>
+
+        {/* 페이지네이션 */}
+        <Pagination
+          currentPage={pagination.currentPage}
+          totalPages={pagination.totalPages}
+          totalItems={pagination.totalItems}
+          itemsPerPage={pagination.itemsPerPage}
+          onPageChange={pagination.goToPage}
+          onFirstPage={pagination.goToFirstPage}
+          onLastPage={pagination.goToLastPage}
+          onNextPage={pagination.goToNextPage}
+          onPrevPage={pagination.goToPrevPage}
+          hasNextPage={pagination.hasNextPage}
+          hasPrevPage={pagination.hasPrevPage}
+        />
 
         {/* 거래 추가/수정 모달 */}
         <TransactionModal 

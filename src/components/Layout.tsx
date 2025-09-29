@@ -43,7 +43,10 @@ export default function Layout({ children }: LayoutProps) {
       {/* Sidebar */}
       <div className="fixed inset-y-0 left-0 z-50 w-64 bg-white shadow-lg">
         <div className="flex h-16 shrink-0 items-center px-6 border-b border-gray-200">
-          <h1 className="text-xl font-semibold text-gray-900">Simple ERP</h1>
+          <h1 className="text-xl font-semibold text-gray-900">
+            <span className="text-2xl mr-2">🥩</span>
+            Simple ERP
+          </h1>
         </div>
         
         <nav className="mt-6 px-3">

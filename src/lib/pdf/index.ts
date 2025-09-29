@@ -3,6 +3,7 @@ import html2canvas from 'html2canvas'
 import { INVOICE_LAYOUT } from './pdfConfig'
 import type { TransactionWithItems, Company, Customer } from '../../types'
 import { formatCurrency } from '../utils'
+import { getCurrentSession } from '../auth'
 
 /**
  * 최종 버전: Bold 강화 + 절취선
@@ -12,6 +13,13 @@ import { formatCurrency } from '../utils'
  * - Bold 강화 (font-weight: 600-800)
  * - 절취선 추가
  */
+
+// 회사별 도장 키 가져오기
+const getStampStorageKey = () => {
+  const session = getCurrentSession()
+  if (!session) return 'simple-erp-stamp-image'
+  return `simple-erp-c${session.company_id}-stamp-image`
+}
 
 async function ensureFontsLoaded(): Promise<void> {
   if (document.fonts && document.fonts.ready) {
@@ -106,7 +114,8 @@ function createInvoiceHTML(
   type: 'supplier' | 'customer'
 ): string {
   const supplyPrice = transaction.total_amount - transaction.tax_amount
-  const stampImage = localStorage.getItem('simple-erp-stamp-image') || ''
+  const stampKey = getStampStorageKey()
+  const stampImage = localStorage.getItem(stampKey) || ''
   
   const color = type === 'supplier' ? '#1e40af' : '#dc2626'
   const label = type === 'supplier' ? '공급자 보관용' : '구매자 보관용'

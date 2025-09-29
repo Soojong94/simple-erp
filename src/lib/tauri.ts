@@ -161,7 +161,6 @@ export const customerAPI = {
       return invoke<Customer>('get_customer_by_id', { id })
     } else {
       await delay(200)
-      const STORAGE_KEYS = getStorageKeys()
       const customers = getFromStorage<Customer[]>(STORAGE_KEYS.CUSTOMERS, [])
       const customer = customers.find(c => c.id === id)
       if (!customer) throw new Error('Customer not found')
@@ -174,7 +173,6 @@ export const customerAPI = {
       return invoke<Customer>('create_customer', { request: customerData })
     } else {
       await delay(500)
-      const STORAGE_KEYS = getStorageKeys()
       const customers = getFromStorage<Customer[]>(STORAGE_KEYS.CUSTOMERS, [])
       const newCustomer: Customer = {
         ...customerData,
@@ -193,7 +191,6 @@ export const customerAPI = {
       return invoke<Customer>('update_customer', { id, request: customerData })
     } else {
       await delay(400)
-      const STORAGE_KEYS = getStorageKeys()
       const customers = getFromStorage<Customer[]>(STORAGE_KEYS.CUSTOMERS, [])
       const index = customers.findIndex(c => c.id === id)
       if (index === -1) throw new Error('Customer not found')
@@ -303,8 +300,33 @@ export const productAPI = {
       const products = getFromStorage<Product[]>(STORAGE_KEYS.PRODUCTS, [])
       const index = products.findIndex(p => p.id === id)
       if (index === -1) throw new Error('Product not found')
+      
+      // 🔧 상품 삭제 시 관련 재고 데이터도 함께 삭제
+      console.log(`🗑️ 상품 #${id} 삭제 중... 관련 재고 데이터도 정리합니다.`)
+      
+      // 1. 재고 현황 삭제
+      const inventory = getFromStorage<ProductInventory[]>(STORAGE_KEYS.PRODUCT_INVENTORY, [])
+      const filteredInventory = inventory.filter(inv => inv.product_id !== id)
+      setToStorage(STORAGE_KEYS.PRODUCT_INVENTORY, filteredInventory)
+      console.log(`  ✓ 재고 현황 데이터 삭제됨`)
+      
+      // 2. 재고 이동 이력 삭제 (또는 보관할 수도 있음)
+      const movements = getFromStorage<StockMovement[]>(STORAGE_KEYS.STOCK_MOVEMENTS, [])
+      const filteredMovements = movements.filter(m => m.product_id !== id)
+      setToStorage(STORAGE_KEYS.STOCK_MOVEMENTS, filteredMovements)
+      console.log(`  ✓ 재고 이동 이력 삭제됨`)
+      
+      // 3. 로트 삭제
+      const lots = getFromStorage<StockLot[]>(STORAGE_KEYS.STOCK_LOTS, [])
+      const filteredLots = lots.filter(lot => lot.product_id !== id)
+      setToStorage(STORAGE_KEYS.STOCK_LOTS, filteredLots)
+      console.log(`  ✓ 로트 데이터 삭제됨`)
+      
+      // 4. 상품 삭제
       products.splice(index, 1)
       setToStorage(STORAGE_KEYS.PRODUCTS, products)
+      console.log(`✅ 상품 #${id} 및 관련 재고 데이터 모두 삭제 완료`)
+      
       backupTrigger.trigger() // 자동 백업 트리거
     }
   },
@@ -830,25 +852,36 @@ export const inventoryAPI = {
       const lots = getFromStorage<StockLot[]>(STORAGE_KEYS.STOCK_LOTS, [])
       const products = getFromStorage<Product[]>(STORAGE_KEYS.PRODUCTS, [])
       
+      // 🔧 실제 존재하는 상품만 필터링 (삭제된 상품 제외)
+      const activeInventory = inventory.filter(inv => 
+        products.some(p => p.id === inv.product_id && p.is_active)
+      )
+      
       const cutoffDate = new Date()
       cutoffDate.setDate(cutoffDate.getDate() + 3)
       
       const stats: InventoryStats = {
-        totalProducts: inventory.length,
-        totalStock: inventory.reduce((sum, inv) => sum + inv.current_stock, 0),
-        lowStockCount: inventory.filter(inv => inv.current_stock < inv.safety_stock).length,
+        totalProducts: activeInventory.length, // 수정됨: 활성 상품만 카운트
+        totalStock: activeInventory.reduce((sum, inv) => sum + inv.current_stock, 0),
+        lowStockCount: activeInventory.filter(inv => inv.current_stock < inv.safety_stock).length,
         expiringCount: lots.filter(lot => {
           const expiryDate = new Date(lot.expiry_date)
-          return lot.status === 'active' && 
+          // 삭제된 상품의 로트는 제외
+          const productExists = products.some(p => p.id === lot.product_id && p.is_active)
+          return productExists &&
+                 lot.status === 'active' && 
                  lot.remaining_quantity > 0 &&
                  expiryDate <= cutoffDate &&
                  expiryDate >= new Date()
         }).length,
-        totalValue: inventory.reduce((sum, inv) => {
+        totalValue: activeInventory.reduce((sum, inv) => {
           const product = products.find(p => p.id === inv.product_id)
           return sum + (inv.current_stock * (product?.unit_price || 0))
         }, 0),
-        expiredCount: lots.filter(lot => lot.status === 'expired').length
+        expiredCount: lots.filter(lot => {
+          const productExists = products.some(p => p.id === lot.product_id && p.is_active)
+          return productExists && lot.status === 'expired'
+        }).length
       }
       
       return stats

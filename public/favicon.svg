@@ -1,0 +1,20 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100">
+  <!-- 배경 -->
+  <rect width="100" height="100" fill="#ef4444" rx="20"/>
+  
+  <!-- 고기 아이콘 (심플한 형태) -->
+  <g transform="translate(50, 50)">
+    <!-- 메인 고기 모양 -->
+    <ellipse cx="0" cy="0" rx="30" ry="25" fill="#fee2e2"/>
+    <ellipse cx="-8" cy="-5" rx="15" ry="12" fill="#fecaca"/>
+    <ellipse cx="10" cy="3" rx="18" ry="15" fill="#fecaca"/>
+    
+    <!-- 마블링 효과 -->
+    <ellipse cx="-5" cy="2" rx="8" ry="6" fill="#fff" opacity="0.7"/>
+    <ellipse cx="8" cy="-3" rx="6" ry="4" fill="#fff" opacity="0.7"/>
+    <ellipse cx="2" cy="8" rx="5" ry="3" fill="#fff" opacity="0.7"/>
+  </g>
+  
+  <!-- ERP 텍스트 (선택사항) -->
+  <text x="50" y="88" font-family="Arial, sans-serif" font-size="16" font-weight="bold" fill="#fff" text-anchor="middle">ERP</text>
+</svg>

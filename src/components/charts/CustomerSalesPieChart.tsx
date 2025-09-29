@@ -41,20 +41,21 @@ export default function CustomerSalesPieChart({ data, isLoading }: CustomerSales
   return (
     <div className="bg-white shadow rounded-lg p-6">
       <h3 className="text-lg font-semibold text-gray-900 mb-4">🏢 거래처별 매출 비중</h3>
-      <div className="flex flex-col lg:flex-row items-center lg:items-start gap-4">
+      <div className="flex flex-col items-center gap-6">
         {/* 차트 */}
-        <div className="w-full lg:w-1/2 h-64">
+        <div className="w-full h-64">
           <ResponsiveContainer width="100%" height="100%">
             <PieChart>
               <Pie
                 data={data}
                 cx="50%"
                 cy="50%"
-                innerRadius={50}
-                outerRadius={90}
+                innerRadius={60}
+                outerRadius={100}
                 paddingAngle={5}
                 dataKey="value"
-                label={({ percent }) => `${(percent * 100).toFixed(0)}%`}
+                label={({ name, percent }) => `${name} ${(percent * 100).toFixed(0)}%`}
+                labelLine={true}
               >
                 {data.map((entry, index) => (
                   <Cell key={`cell-${index}`} fill={entry.color} />
@@ -69,7 +70,7 @@ export default function CustomerSalesPieChart({ data, isLoading }: CustomerSales
         </div>
         
         {/* 범례 */}
-        <div className="w-full lg:w-1/2 space-y-2">
+        <div className="w-full space-y-2">
           {data.map((entry, index) => (
             <div key={index} className="flex items-center justify-between p-2 rounded hover:bg-gray-50">
               <div className="flex items-center flex-1 min-w-0">
@@ -79,7 +80,7 @@ export default function CustomerSalesPieChart({ data, isLoading }: CustomerSales
                 ></div>
                 <span className="text-sm text-gray-700 truncate">{entry.name}</span>
               </div>
-              <span className="text-sm font-medium text-gray-900 ml-2">{formatCurrency(entry.value)}</span>
+              <span className="text-sm font-medium text-gray-900 ml-2 whitespace-nowrap">{formatCurrency(entry.value)}</span>
             </div>
           ))}
         </div>

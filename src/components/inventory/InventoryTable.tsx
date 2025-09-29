@@ -1,8 +1,10 @@
-import { useState, useMemo, Fragment } from 'react'
+import { useState, useMemo, Fragment, useEffect } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { inventoryAPI, productAPI } from '../../lib/tauri'
 import { formatNumber, cn } from '../../lib/utils'
 import { useExpandableTable } from '../../hooks/useExpandableTable'
+import { usePagination } from '../../hooks/usePagination'
+import Pagination from '../Pagination'
 import type { ProductInventory, Product } from '../../types'
 
 interface InventoryTableProps {
@@ -67,8 +69,17 @@ export default function InventoryTable({ onStockMovement }: InventoryTableProps)
       filtered = filtered.filter(item => item.current_stock >= item.safety_stock)
     }
 
-    return filtered
+      return filtered
   }, [combinedData, searchQuery, filterType])
+
+  // 페이지네이션 적용
+  const pagination = usePagination(filteredData, 50)
+  const { paginatedItems: paginatedData } = pagination
+
+  // 필터 변경 시 페이지 초기화
+  useEffect(() => {
+    pagination.resetPage()
+  }, [searchQuery, filterType])
 
   const isLoading = isLoadingInventory || isLoadingProducts
 
@@ -176,14 +187,14 @@ export default function InventoryTable({ onStockMovement }: InventoryTableProps)
                   </div>
                 </td>
               </tr>
-            ) : filteredData.length === 0 ? (
+            ) : paginatedData.length === 0 ? (
               <tr>
                 <td colSpan={6} className="px-6 py-4 text-center text-gray-500">
                   재고 데이터가 없습니다.
                 </td>
               </tr>
             ) : (
-              filteredData.map((item) => {
+              paginatedData.map((item) => {
                 const status = getStockStatus(item.current_stock, item.safety_stock)
                 const expanded = isExpanded(item.id!)
                 const productMovements = movements.filter(m => m.product_id === item.id)
@@ -303,6 +314,21 @@ export default function InventoryTable({ onStockMovement }: InventoryTableProps)
           </tbody>
         </table>
       </div>
+
+      {/* 페이지네이션 */}
+      <Pagination
+        currentPage={pagination.currentPage}
+        totalPages={pagination.totalPages}
+        totalItems={pagination.totalItems}
+        itemsPerPage={pagination.itemsPerPage}
+        onPageChange={pagination.goToPage}
+        onFirstPage={pagination.goToFirstPage}
+        onLastPage={pagination.goToLastPage}
+        onNextPage={pagination.goToNextPage}
+        onPrevPage={pagination.goToPrevPage}
+        hasNextPage={pagination.hasNextPage}
+        hasPrevPage={pagination.hasPrevPage}
+      />
     </div>
   )
 }

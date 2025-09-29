@@ -2,11 +2,19 @@ import { useState, useEffect } from 'react'
 import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { companyAPI } from '../../lib/tauri'
 import { Company } from '../../types'
+import { getCurrentSession } from '../../lib/auth'
 
 interface CompanyInfoSectionProps {
   company: Company | undefined
   isLoading: boolean
   onMessage: (message: string, type: 'success' | 'error' | 'info') => void
+}
+
+// 회사별 도장 키 생성
+const getStampStorageKey = () => {
+  const session = getCurrentSession()
+  if (!session) return 'simple-erp-stamp-image'
+  return `simple-erp-c${session.company_id}-stamp-image`
 }
 
 export default function CompanyInfoSection({ 
@@ -33,7 +41,8 @@ export default function CompanyInfoSection({
 
   // 도장 이미지 불러오기
   useEffect(() => {
-    const savedStamp = localStorage.getItem('simple-erp-stamp-image')
+    const stampKey = getStampStorageKey()
+    const savedStamp = localStorage.getItem(stampKey)
     if (savedStamp) {
       setStampImage(savedStamp)
       setStampPreview(savedStamp)
@@ -111,8 +120,9 @@ export default function CompanyInfoSection({
       setStampImage(base64)
       setStampPreview(base64)
       
-      // localStorage에 즉시 저장
-      localStorage.setItem('simple-erp-stamp-image', base64)
+      // localStorage에 회사별로 저장
+      const stampKey = getStampStorageKey()
+      localStorage.setItem(stampKey, base64)
       
       onMessage('도장 이미지가 저장되었습니다. 거래명세서에 자동으로 표시됩니다.', 'success')
     }
@@ -123,7 +133,8 @@ export default function CompanyInfoSection({
   const handleStampRemove = () => {
     setStampImage('')
     setStampPreview('')
-    localStorage.removeItem('simple-erp-stamp-image')
+    const stampKey = getStampStorageKey()
+    localStorage.removeItem(stampKey)
     
     onMessage('도장 이미지가 제거되었습니다.', 'success')
   }

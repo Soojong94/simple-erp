@@ -1,11 +1,13 @@
-import { useState, useMemo } from 'react'
+import { useState, useMemo, useEffect } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { productAPI, transactionAPI } from '../lib/tauri'
 import { formatCurrency } from '../lib/utils'
 import { useExpandableTable } from '../hooks/useExpandableTable'
+import { usePagination } from '../hooks/usePagination'
 import ProductModal from '../components/modals/ProductModal'
 import ProductExpandableRow from '../components/expandable/ProductExpandableRow'
 import SortDropdown from '../components/SortDropdown'
+import Pagination from '../components/Pagination'
 import type { Product } from '../types'
 
 export default function Products() {
@@ -98,12 +100,11 @@ export default function Products() {
     return usageMap
   }, [products, transactions])
 
-  // 필터링 및 정렬된 상품 목록
-  const filteredAndSortedProducts = useMemo(() => {
+  // 필터링된 상품 목록
+  const filteredProducts = useMemo(() => {
     if (!products) return []
     
-    // 필터링
-    let filtered = products.filter(product => {
+    return products?.filter(product => {
       const matchesCategory = filterCategory === 'all' || product.category === filterCategory
       const matchesSearch = !searchQuery || 
         product.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
@@ -112,10 +113,12 @@ export default function Products() {
       const matchesActive = !activeOnly || product.is_active
       
       return matchesCategory && matchesSearch && matchesActive
-    })
-    
-    // 정렬
-    return [...filtered].sort((a, b) => {
+    }) || []
+  }, [products, filterCategory, searchQuery, activeOnly])
+
+  // 정렬된 상품 목록
+  const sortedProducts = useMemo(() => {
+    return [...filteredProducts].sort((a, b) => {
       let comparison = 0
       
       switch (sortBy) {
@@ -135,7 +138,16 @@ export default function Products() {
       
       return sortOrder === 'asc' ? comparison : -comparison
     })
-  }, [products, filterCategory, searchQuery, activeOnly, sortBy, sortOrder])
+  }, [filteredProducts, sortBy, sortOrder])
+
+  // 페이지네이션 적용
+  const pagination = usePagination(sortedProducts, 50)
+  const { paginatedItems: paginatedProducts } = pagination
+
+  // 필터 변경 시 페이지 초기화
+  useEffect(() => {
+    pagination.resetPage()
+  }, [filterCategory, searchQuery, activeOnly, sortBy, sortOrder])
 
   if (error) {
     console.error('Products API error:', error)
@@ -358,7 +370,7 @@ export default function Products() {
                         </div>
                       </td>
                     </tr>
-                  ) : !filteredAndSortedProducts || filteredAndSortedProducts.length === 0 ? (
+                  ) : !paginatedProducts || paginatedProducts.length === 0 ? (
                     <tr>
                       <td colSpan={8} className="px-6 py-4 text-sm text-gray-500 text-center">
                         {products?.length === 0 ? (
@@ -372,7 +384,7 @@ export default function Products() {
                       </td>
                     </tr>
                   ) : (
-                    filteredAndSortedProducts.map((product: Product) => (
+                    paginatedProducts.map((product: Product) => (
                       <ProductExpandableRow
                         key={product.id}
                         product={product}
@@ -388,6 +400,21 @@ export default function Products() {
             </div>
           </div>
         </div>
+
+        {/* 페이지네이션 */}
+        <Pagination
+          currentPage={pagination.currentPage}
+          totalPages={pagination.totalPages}
+          totalItems={pagination.totalItems}
+          itemsPerPage={pagination.itemsPerPage}
+          onPageChange={pagination.goToPage}
+          onFirstPage={pagination.goToFirstPage}
+          onLastPage={pagination.goToLastPage}
+          onNextPage={pagination.goToNextPage}
+          onPrevPage={pagination.goToPrevPage}
+          hasNextPage={pagination.hasNextPage}
+          hasPrevPage={pagination.hasPrevPage}
+        />
       </div>
 
         {/* 상품 추가/수정 모달 */}

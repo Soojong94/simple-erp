@@ -1,10 +1,12 @@
-import { useState, useMemo } from 'react'
+import { useState, useMemo, useEffect } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { customerAPI } from '../lib/tauri'
 import { useExpandableTable } from '../hooks/useExpandableTable'
+import { usePagination } from '../hooks/usePagination'
 import CustomerModal from '../components/modals/CustomerModal'
 import CustomerExpandableRow from '../components/expandable/CustomerExpandableRow'
 import SortDropdown from '../components/SortDropdown'
+import Pagination from '../components/Pagination'
 import type { Customer } from '../types'
 
 export default function Customers() {
@@ -68,7 +70,7 @@ export default function Customers() {
     })
   }, [customers, filterType, searchQuery])
 
-  // 정렬된 고객 목록
+  // 정렬된 거래처 목록
   const sortedCustomers = useMemo(() => {
     if (!filteredCustomers) return []
     
@@ -90,6 +92,15 @@ export default function Customers() {
       return sortOrder === 'asc' ? comparison : -comparison
     })
   }, [filteredCustomers, sortBy, sortOrder])
+
+  // 페이지네이션 적용
+  const pagination = usePagination(sortedCustomers, 50)
+  const { paginatedItems: paginatedCustomers } = pagination
+
+  // 필터 변경 시 페이지 초기화
+  useEffect(() => {
+    pagination.resetPage()
+  }, [filterType, searchQuery, sortBy, sortOrder])
 
   if (error) {
     console.error('Customer API error:', error)
@@ -270,7 +281,7 @@ export default function Customers() {
                           </div>
                         </td>
                       </tr>
-                    ) : !sortedCustomers || sortedCustomers.length === 0 ? (
+                    ) : !paginatedCustomers || paginatedCustomers.length === 0 ? (
                       <tr>
                         <td colSpan={7} className="px-6 py-4 text-sm text-gray-500 text-center">
                           {customers?.length === 0 ? (
@@ -284,7 +295,7 @@ export default function Customers() {
                         </td>
                       </tr>
                     ) : (
-                      sortedCustomers.map((customer: Customer) => (
+                      paginatedCustomers.map((customer: Customer) => (
                         <CustomerExpandableRow
                           key={customer.id}
                           customer={customer}
@@ -298,9 +309,24 @@ export default function Customers() {
                   </tbody>
                 </table>
               </div>
-            </div>
-          </div>
-        </div>
+              </div>
+              </div>
+
+        {/* 페이지네이션 */}
+              <Pagination
+          currentPage={pagination.currentPage}
+          totalPages={pagination.totalPages}
+          totalItems={pagination.totalItems}
+          itemsPerPage={pagination.itemsPerPage}
+          onPageChange={pagination.goToPage}
+          onFirstPage={pagination.goToFirstPage}
+          onLastPage={pagination.goToLastPage}
+          onNextPage={pagination.goToNextPage}
+          onPrevPage={pagination.goToPrevPage}
+          hasNextPage={pagination.hasNextPage}
+          hasPrevPage={pagination.hasPrevPage}
+        />
+      </div>
 
         {/* 거래처 추가/수정 모달 */}
         <CustomerModal 

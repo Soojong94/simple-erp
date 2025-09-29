@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react'
 import { useMutation, useQueryClient } from '@tanstack/react-query'
-import { productAPI } from '../../lib/tauri'
+import { productAPI, inventoryAPI } from '../../lib/tauri'
 import type { Product } from '../../types'
 
 interface ProductModalProps {
@@ -20,30 +20,76 @@ export default function ProductModal({ isOpen, onClose, product }: ProductModalP
     unit: 'kg',
     unit_price: '',
     description: '',
-    is_active: true
+    is_active: true,
+    // 재고 관리 설정 (선택사항)
+    use_inventory: false,
+    safety_stock: 30,
+    location: 'cold' as 'frozen' | 'cold' | 'room'
   })
 
   // product prop 변경 시 formData 업데이트
   useEffect(() => {
-    if (product) {
-      setFormData({
-        name: product.name || '',
-        code: product.code || '',
-        category: product.category || '',
-        unit: product.unit || 'kg',
-        unit_price: product.unit_price || '',
-        description: product.description || '',
-        is_active: product.is_active ?? true
-      })
-    } else {
-      resetForm()
+    const loadProductData = async () => {
+      if (product) {
+        // 🔧 기존 재고 설정 불러오기
+        let inventorySettings = {
+          use_inventory: false,
+          safety_stock: 30,
+          location: 'cold' as 'frozen' | 'cold' | 'room'
+        }
+        
+        try {
+          const inventory = await inventoryAPI.getByProductId(product.id!)
+          if (inventory && inventory.id) {
+            inventorySettings = {
+              use_inventory: true,
+              safety_stock: inventory.safety_stock || 30,
+              location: inventory.location || 'cold'
+            }
+          }
+        } catch (error) {
+          // 재고 설정이 없으면 기본값 사용
+          console.log('재고 설정 없음, 기본값 사용')
+        }
+        
+        setFormData({
+          name: product.name || '',
+          code: product.code || '',
+          category: product.category || '',
+          unit: product.unit || 'kg',
+          unit_price: product.unit_price || '',
+          description: product.description || '',
+          is_active: product.is_active ?? true,
+          ...inventorySettings
+        })
+      } else {
+        resetForm()
+      }
     }
+    
+    loadProductData()
   }, [product])
 
   const createMutation = useMutation({
-    mutationFn: productAPI.create,
+    mutationFn: async (data: any) => {
+      const newProduct = await productAPI.create(data)
+      
+      // 재고 관리 사용 시 자동으로 재고 초기화
+      if (data.use_inventory && newProduct.id) {
+        await inventoryAPI.updateInventory({
+          product_id: newProduct.id,
+          current_stock: 0,
+          safety_stock: data.safety_stock || 30,
+          location: data.location || 'cold',
+          last_updated: new Date().toISOString()
+        })
+      }
+      
+      return newProduct
+    },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['products'] })
+      queryClient.invalidateQueries({ queryKey: ['inventory'] })
       onClose()
       resetForm()
       alert('상품이 추가되었습니다.')
@@ -55,9 +101,31 @@ export default function ProductModal({ isOpen, onClose, product }: ProductModalP
   })
 
   const updateMutation = useMutation({
-    mutationFn: ({ id, data }: { id: number, data: any }) => productAPI.update(id, data),
+    mutationFn: async ({ id, data }: { id: number, data: any }) => {
+      const updatedProduct = await productAPI.update(id, data)
+      
+      // 🔧 재고 관리 설정에 따라 처리
+      if (data.use_inventory) {
+        // 재고 관리 활성화 → 재고 설정 업데이트
+        const existingInventory = await inventoryAPI.getByProductId(id).catch(() => null)
+        await inventoryAPI.updateInventory({
+          product_id: id,
+          current_stock: existingInventory?.current_stock || 0,
+          safety_stock: data.safety_stock || 30,
+          location: data.location || 'cold',
+          last_updated: new Date().toISOString()
+        })
+        console.log(`✅ 재고 관리 활성화됨 - 상품 #${id}`)
+      } else {
+        // 재고 관리 비활성화 → 재고 데이터는 유지하되 별도 표시 안함
+        console.log(`ℹ️ 재고 관리 비활성화됨 - 상품 #${id}`)
+      }
+      
+      return updatedProduct
+    },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['products'] })
+      queryClient.invalidateQueries({ queryKey: ['inventory'] })
       onClose()
       resetForm()
       alert('상품이 수정되었습니다.')
@@ -76,7 +144,11 @@ export default function ProductModal({ isOpen, onClose, product }: ProductModalP
       unit: 'kg',
       unit_price: '',
       description: '',
-      is_active: true
+      is_active: true,
+      // 🔧 명시적으로 false로 초기화
+      use_inventory: false,
+      safety_stock: 30,
+      location: 'cold'
     })
   }
 
@@ -126,7 +198,7 @@ export default function ProductModal({ isOpen, onClose, product }: ProductModalP
 
   return (
     <div className="fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full z-50">
-      <div className="relative top-20 mx-auto p-5 border w-full max-w-2xl shadow-lg rounded-md bg-white">
+      <div className="relative top-20 mx-auto p-5 border w-full max-w-3xl shadow-lg rounded-md bg-white max-h-[90vh] overflow-y-auto">
         <div className="flex items-center justify-between mb-4">
           <h3 className="text-lg font-medium text-gray-900">
             {isEditing ? '상품 수정' : '상품 추가'}
@@ -141,123 +213,198 @@ export default function ProductModal({ isOpen, onClose, product }: ProductModalP
           </button>
         </div>
 
-        <form onSubmit={handleSubmit} className="space-y-4">
-          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-            {/* 상품명 */}
-            <div>
-              <label className="block text-sm font-medium text-gray-700">
-                상품명 *
-              </label>
-              <input
-                type="text"
-                name="name"
-                value={formData.name}
-                onChange={handleChange}
-                required
-                className="mt-1 block w-full border border-gray-300 rounded-md px-3 py-2 shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
-                placeholder="예: 목살"
-              />
-            </div>
-
-            {/* 상품코드 */}
-            <div>
-              <label className="block text-sm font-medium text-gray-700">
-                상품코드
-              </label>
-              <div className="mt-1 flex rounded-md shadow-sm">
+        <form onSubmit={handleSubmit} className="space-y-6">
+          {/* 기본 정보 */}
+          <div className="border-b pb-4">
+            <h4 className="text-md font-medium text-gray-900 mb-4">📦 기본 정보</h4>
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+              {/* 상품명 */}
+              <div>
+                <label className="block text-sm font-medium text-gray-700">
+                  상품명 *
+                </label>
                 <input
                   type="text"
-                  name="code"
-                  value={formData.code}
+                  name="name"
+                  value={formData.name}
                   onChange={handleChange}
-                  className="flex-1 min-w-0 block w-full px-3 py-2 rounded-none rounded-l-md border border-gray-300 focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
-                  placeholder="PORK001"
+                  required
+                  className="mt-1 block w-full border border-gray-300 rounded-md px-3 py-2 shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
+                  placeholder="예: 목살"
                 />
-                <button
-                  type="button"
-                  onClick={generateProductCode}
-                  className="inline-flex items-center px-3 py-2 border border-l-0 border-gray-300 rounded-r-md bg-gray-50 text-gray-500 text-sm hover:bg-gray-100"
+              </div>
+
+              {/* 상품코드 */}
+              <div>
+                <label className="block text-sm font-medium text-gray-700">
+                  상품코드
+                </label>
+                <div className="mt-1 flex rounded-md shadow-sm">
+                  <input
+                    type="text"
+                    name="code"
+                    value={formData.code}
+                    onChange={handleChange}
+                    className="flex-1 min-w-0 block w-full px-3 py-2 rounded-none rounded-l-md border border-gray-300 focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
+                    placeholder="PORK001"
+                  />
+                  <button
+                    type="button"
+                    onClick={generateProductCode}
+                    className="inline-flex items-center px-3 py-2 border border-l-0 border-gray-300 rounded-r-md bg-gray-50 text-gray-500 text-sm hover:bg-gray-100"
+                  >
+                    자동생성
+                  </button>
+                </div>
+              </div>
+
+              {/* 카테고리 */}
+              <div>
+                <label className="block text-sm font-medium text-gray-700">
+                  카테고리 *
+                </label>
+                <select
+                  name="category"
+                  value={formData.category}
+                  onChange={handleChange}
+                  required
+                  className="mt-1 block w-full border border-gray-300 rounded-md px-3 py-2 shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
                 >
-                  자동생성
-                </button>
+                  <option value="">카테고리 선택</option>
+                  <option value="돼지고기">돼지고기</option>
+                  <option value="소고기">소고기</option>
+                  <option value="닭고기">닭고기</option>
+                  <option value="오리고기">오리고기</option>
+                  <option value="기타">기타</option>
+                </select>
+              </div>
+
+              {/* 단위 */}
+              <div>
+                <label className="block text-sm font-medium text-gray-700">
+                  단위 *
+                </label>
+                <select
+                  name="unit"
+                  value={formData.unit}
+                  onChange={handleChange}
+                  required
+                  className="mt-1 block w-full border border-gray-300 rounded-md px-3 py-2 shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
+                >
+                  <option value="kg">kg</option>
+                  <option value="g">g</option>
+                  <option value="개">개</option>
+                  <option value="마리">마리</option>
+                </select>
+              </div>
+
+              {/* 참고가격 */}
+              <div className="sm:col-span-2">
+                <label className="block text-sm font-medium text-gray-700">
+                  참고가격 ({formData.unit}당)
+                  <span className="text-gray-500 text-xs ml-1">(선택사항)</span>
+                </label>
+                <input
+                  type="number"
+                  name="unit_price"
+                  value={formData.unit_price}
+                  onChange={handleChange}
+                  min="0"
+                  step="100"
+                  className="mt-1 block w-full border border-gray-300 rounded-md px-3 py-2 shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
+                  placeholder="12000"
+                />
+                <p className="text-xs text-gray-500 mt-1">
+                  실제 거래 시에는 거래처별로 다른 가격을 적용할 수 있습니다.
+                </p>
               </div>
             </div>
 
-            {/* 카테고리 */}
-            <div>
+            {/* 설명 */}
+            <div className="mt-4">
               <label className="block text-sm font-medium text-gray-700">
-                카테고리 *
+                상품 설명
               </label>
-              <select
-                name="category"
-                value={formData.category}
+              <textarea
+                name="description"
+                value={formData.description}
                 onChange={handleChange}
-                required
+                rows={2}
                 className="mt-1 block w-full border border-gray-300 rounded-md px-3 py-2 shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
-              >
-                <option value="">카테고리 선택</option>
-                <option value="돼지고기">돼지고기</option>
-                <option value="소고기">소고기</option>
-                <option value="닭고기">닭고기</option>
-                <option value="오리고기">오리고기</option>
-                <option value="기타">기타</option>
-              </select>
-            </div>
-
-            {/* 단위 */}
-            <div>
-              <label className="block text-sm font-medium text-gray-700">
-                단위 *
-              </label>
-              <select
-                name="unit"
-                value={formData.unit}
-                onChange={handleChange}
-                required
-                className="mt-1 block w-full border border-gray-300 rounded-md px-3 py-2 shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
-              >
-                <option value="kg">kg</option>
-                <option value="g">g</option>
-                <option value="개">개</option>
-                <option value="마리">마리</option>
-              </select>
-            </div>
-
-            {/* 참고가격 */}
-            <div className="sm:col-span-2">
-              <label className="block text-sm font-medium text-gray-700">
-                참고가격 ({formData.unit}당)
-                <span className="text-gray-500 text-xs ml-1">(선택사항 - 거래처별로 다를 수 있음)</span>
-              </label>
-              <input
-                type="number"
-                name="unit_price"
-                value={formData.unit_price}
-                onChange={handleChange}
-                min="0"
-                step="100"
-                className="mt-1 block w-full border border-gray-300 rounded-md px-3 py-2 shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
-                placeholder="12000"
+                placeholder="국내산 돼지 목살 (등급: 1+)"
               />
-              <p className="text-xs text-gray-500 mt-1">
-                실제 거래 시에는 거래처별로 다른 가격을 적용할 수 있습니다.
-              </p>
             </div>
           </div>
 
-          {/* 설명 */}
-          <div>
-            <label className="block text-sm font-medium text-gray-700">
-              상품 설명
-            </label>
-            <textarea
-              name="description"
-              value={formData.description}
-              onChange={handleChange}
-              rows={3}
-              className="mt-1 block w-full border border-gray-300 rounded-md px-3 py-2 shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
-              placeholder="국내산 돼지 목살 (등급: 1+)"
-            />
+          {/* 재고 관리 설정 (선택사항) */}
+          <div className="border-b pb-4">
+            <div className="flex items-center justify-between mb-4">
+              <h4 className="text-md font-medium text-gray-900">📊 재고 관리 설정</h4>
+              <label className="flex items-center cursor-pointer">
+                <input
+                  type="checkbox"
+                  name="use_inventory"
+                  checked={formData.use_inventory}
+                  onChange={handleChange}
+                  className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
+                />
+                <span className="ml-2 text-sm text-gray-700">재고 관리 사용</span>
+              </label>
+            </div>
+
+            {formData.use_inventory ? (
+              <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 space-y-4">
+                <p className="text-sm text-blue-800">
+                  💡 재고 관리를 활성화하면 입출고 내역이 자동으로 추적됩니다.
+                </p>
+
+                <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+                  {/* 안전 재고 */}
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700">
+                      안전 재고 ({formData.unit})
+                    </label>
+                    <input
+                      type="number"
+                      name="safety_stock"
+                      value={formData.safety_stock}
+                      onChange={handleChange}
+                      min="0"
+                      className="mt-1 block w-full border border-gray-300 rounded-md px-3 py-2 shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
+                      placeholder="30"
+                    />
+                    <p className="text-xs text-gray-500 mt-1">
+                      재고가 이 수량보다 적으면 알림이 표시됩니다.
+                    </p>
+                  </div>
+
+                  {/* 보관 위치 */}
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700">
+                      보관 위치
+                    </label>
+                    <select
+                      name="location"
+                      value={formData.location}
+                      onChange={handleChange}
+                      className="mt-1 block w-full border border-gray-300 rounded-md px-3 py-2 shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
+                    >
+                      <option value="frozen">❄️ 냉동</option>
+                      <option value="cold">🧊 냉장</option>
+                      <option value="room">🌡️ 상온</option>
+                    </select>
+                  </div>
+                </div>
+              </div>
+            ) : (
+              <div className="bg-gray-50 border border-gray-200 rounded-lg p-4">
+                <p className="text-sm text-gray-600">
+                  재고 관리를 사용하지 않으면 수기로 재고를 관리할 수 있습니다.
+                  <br />
+                  체크박스를 선택하면 자동 재고 추적이 활성화됩니다.
+                </p>
+              </div>
+            )}
           </div>
 
           {/* 활성 상태 */}
