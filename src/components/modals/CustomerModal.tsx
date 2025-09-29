@@ -21,7 +21,8 @@ export default function CustomerModal({ isOpen, onClose, customer }: CustomerMod
     phone: '',
     email: '',
     address: '',
-    is_active: true
+    is_active: true,
+    outstanding_balance: 0  // 🆕 미수금
   })
 
   // customer prop 변경 시 formData 업데이트
@@ -35,7 +36,8 @@ export default function CustomerModal({ isOpen, onClose, customer }: CustomerMod
         phone: customer.phone || '',
         email: customer.email || '',
         address: customer.address || '',
-        is_active: customer.is_active ?? true
+        is_active: customer.is_active ?? true,
+        outstanding_balance: customer.outstanding_balance || 0  // 🆕
       })
     } else {
       resetForm()
@@ -79,7 +81,8 @@ export default function CustomerModal({ isOpen, onClose, customer }: CustomerMod
       phone: '',
       email: '',
       address: '',
-      is_active: true
+      is_active: true,
+      outstanding_balance: 0  // 🆕
     })
   }
 
@@ -235,6 +238,39 @@ export default function CustomerModal({ isOpen, onClose, customer }: CustomerMod
               placeholder="서울시 강남구 테헤란로 123"
             />
           </div>
+
+          {/* 🆕 미수금 관리 - 읽기 전용 */}
+          {isEditing && formData.type === 'customer' && (
+            <div className="border-t pt-4">
+              <h4 className="text-md font-medium text-gray-900 mb-4">💰 미수금 정보</h4>
+              
+              <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+                <div className="flex items-center justify-between">
+                  <label className="text-sm font-medium text-gray-700">
+                    현재 미수금
+                  </label>
+                  <div className="text-2xl font-bold text-blue-700">
+                    {new Intl.NumberFormat('ko-KR', { style: 'currency', currency: 'KRW' }).format(formData.outstanding_balance)}
+                  </div>
+                </div>
+                
+                <div className="mt-3 space-y-1 bg-white rounded p-3 border border-blue-100">
+                  <p className="text-xs text-gray-600">
+                    💡 <strong>미수금 관리 방법:</strong>
+                  </p>
+                  <p className="text-xs text-gray-600 ml-4">
+                    • <strong>수금 시:</strong> 거래 관리에서 "💵 수금 처리" 거래를 생성하세요
+                  </p>
+                  <p className="text-xs text-gray-600 ml-4">
+                    • <strong>매출 시:</strong> 자동으로 미수금이 증가합니다
+                  </p>
+                  <p className="text-xs text-gray-600 ml-4">
+                    • <strong>추적:</strong> 모든 입출금 내역이 거래 테이블에 기록됩니다
+                  </p>
+                </div>
+              </div>
+            </div>
+          )}
 
           {/* 활성 상태 */}
           <div className="flex items-center">

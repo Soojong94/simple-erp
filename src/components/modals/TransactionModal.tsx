@@ -14,11 +14,11 @@ interface TransactionModalProps {
   preSelectedCustomerId?: number
 }
 
-export default function TransactionModal({ 
-  isOpen, 
-  onClose, 
-  transaction, 
-  preSelectedCustomerId 
+export default function TransactionModal({
+  isOpen,
+  onClose,
+  transaction,
+  preSelectedCustomerId
 }: TransactionModalProps) {
   const queryClient = useQueryClient()
   const isEditing = !!transaction
@@ -26,11 +26,14 @@ export default function TransactionModal({
   // 폼 데이터 상태
   const [formData, setFormData] = useState({
     customer_id: 0,
-    transaction_type: 'sales' as 'sales' | 'purchase',
+    transaction_type: 'sales' as 'sales' | 'purchase' | 'payment',
     transaction_date: new Date().toISOString().split('T')[0],
     due_date: '',
     notes: ''
   })
+
+  // 🆕 수금 금액 상태 (payment 타입일 때만 사용)
+  const [paymentAmount, setPaymentAmount] = useState<number>(0)
 
   // formData.customer_id 변경 감지 (디버그용)
   useEffect(() => {
@@ -38,7 +41,7 @@ export default function TransactionModal({
   }, [formData.customer_id])
 
   const [items, setItems] = useState<TransactionItem[]>([])
-  
+
   // VAT 포함/미포함 상태 (localStorage에서 불러오기)
   const [isVatIncluded, setIsVatIncluded] = useState(() => {
     const saved = localStorage.getItem('simple-erp-vat-included')
@@ -73,7 +76,7 @@ export default function TransactionModal({
       isEditing,
       transaction: !!transaction
     })
-    
+
     if (preSelectedCustomerId && preSelectedCustomerId > 0 && !isEditing) {
       console.log('✅ 거래처 자동 선택:', preSelectedCustomerId)
       setFormData(prev => ({
@@ -94,46 +97,67 @@ export default function TransactionModal({
     queryFn: () => productAPI.getAll()
   })
 
+  // 🆕 최근 수금 내역 조회 (payment 타입 거래 중 미표시건)
+  const { data: recentPayments } = useQuery({
+    queryKey: ['recent-payments', formData.customer_id],
+    queryFn: async () => {
+      if (!formData.customer_id) return []
+      const allTransactions = await transactionAPI.getAll()
+      return allTransactions.filter(t =>
+        t.transaction_type === 'payment' &&
+        t.customer_id === formData.customer_id &&
+        !t.is_displayed_in_invoice  // 아직 거래증에 표시 안 된 것만
+      ).sort((a, b) =>
+        new Date(b.transaction_date).getTime() - new Date(a.transaction_date).getTime()
+      )
+    },
+    enabled: formData.customer_id > 0 && formData.transaction_type === 'sales'
+  })
+
+  // 🆕 선택된 수금 거래 ID
+  const [selectedPaymentId, setSelectedPaymentId] = useState<number | null>(null)
+
   // 거래 데이터 조회 (상품 정렬용)
   const { data: allTransactions } = useQuery({
     queryKey: ['transactions'],
     queryFn: () => transactionAPI.getAll()
   })
 
-  // 거래처별 상품 사용 통계 (최근 수량 + 이력번호 포함) 🎉
+  // 거래처별 상품 사용 통계 (최근 수량 + 단가 + 이력번호 포함) 🎉
   const productUsageStats = useMemo(() => {
     if (!formData.customer_id || !allTransactions) return new Map()
-    
-    const stats = new Map<number, { count: number, lastUsed: string, lastQuantity: number, lastTraceability: string }>()
-    
+
+    const stats = new Map<number, { count: number, lastUsed: string, lastQuantity: number, lastUnitPrice: number, lastTraceability: string }>()
+
     // 해당 거래처의 거래만 필터링
     const customerTransactions = allTransactions.filter(
       t => t.customer_id === formData.customer_id
     )
-    
+
     customerTransactions.forEach(transaction => {
       transaction.items?.forEach(item => {
-        const current = stats.get(item.product_id) || { count: 0, lastUsed: '', lastQuantity: 1, lastTraceability: '' }
-        
-        // 최근 거래일이면 수량 + 이력번호도 업데이트
+        const current = stats.get(item.product_id) || { count: 0, lastUsed: '', lastQuantity: 1, lastUnitPrice: 0, lastTraceability: '' }
+
+        // 최근 거래일이면 수량 + 단가 + 이력번호도 업데이트
         const isMoreRecent = transaction.transaction_date > current.lastUsed
-        
+
         stats.set(item.product_id, {
           count: current.count + 1,
           lastUsed: isMoreRecent ? transaction.transaction_date : current.lastUsed,
           lastQuantity: isMoreRecent ? item.quantity : current.lastQuantity,
-          lastTraceability: isMoreRecent ? (item.traceability_number || '') : current.lastTraceability  // 🎯 이력번호 추가!
+          lastUnitPrice: isMoreRecent ? item.unit_price : current.lastUnitPrice,  // 🎯 단가 추가!
+          lastTraceability: isMoreRecent ? (item.traceability_number || '') : current.lastTraceability
         })
       })
     })
-    
+
     return stats
   }, [formData.customer_id, allTransactions])
 
   // 정렬된 상품 목록
   const sortedProducts = useMemo(() => {
     if (!products) return []
-    
+
     return [...products]
       .filter(p => p.is_active)
       .sort((a, b) => {
@@ -141,18 +165,18 @@ export default function TransactionModal({
         if (formData.customer_id && productUsageStats.size > 0) {
           const statsA = productUsageStats.get(a.id!) || { count: 0, lastUsed: '' }
           const statsB = productUsageStats.get(b.id!) || { count: 0, lastUsed: '' }
-          
+
           // 1순위: 거래 빈도
           if (statsA.count !== statsB.count) {
             return statsB.count - statsA.count
           }
-          
+
           // 2순위: 최근 거래일
           if (statsA.lastUsed && statsB.lastUsed) {
             return statsB.lastUsed.localeCompare(statsA.lastUsed)
           }
         }
-        
+
         // 거래처 미선택 시 이름순
         return a.name.localeCompare(b.name)
       })
@@ -163,11 +187,11 @@ export default function TransactionModal({
     if (!formData.customer_id || productUsageStats.size === 0) {
       return []
     }
-    
+
     // 제외 목록 불러오기
     const exclusions = getCustomerProductExclusions(formData.customer_id)
-    
-    return sortedProducts.filter(p => 
+
+    return sortedProducts.filter(p =>
       productUsageStats.has(p.id!) &&  // 거래 이력 있음
       !exclusions.includes(p.id!)       // 제외되지 않음
     )
@@ -178,7 +202,7 @@ export default function TransactionModal({
     mutationFn: async (data: any) => {
       // 1. 거래 생성
       const newTransaction = await transactionAPI.create(data)
-      
+
       // 2. 재고 처리
       if (newTransaction) {
         // 매입(구매) 거래
@@ -189,18 +213,18 @@ export default function TransactionModal({
             const today = new Date().toISOString().split('T')[0]
             const randomCode = Math.random().toString(36).substr(2, 4).toUpperCase()
             const lotNumber = `LOT-${today.replace(/-/g, '')}-${item.product_id}-${randomCode}`
-            
+
             // 유통기한 계산 (카테고리별 기본값 적용)
             const product = products?.find(p => p.id === item.product_id)
             let expiryDays = 7 // 기본값
-            
+
             if (product?.category === '돼지고기') expiryDays = 7
             else if (product?.category === '소고기') expiryDays = 10
             else if (product?.category === '닭고기' || product?.category === '오리고기') expiryDays = 5
-            
+
             const expiryDate = new Date(data.transaction_date)
             expiryDate.setDate(expiryDate.getDate() + expiryDays)
-            
+
             // 로트 생성
             await inventoryAPI.createLot({
               product_id: item.product_id,
@@ -213,7 +237,7 @@ export default function TransactionModal({
               supplier_name: customers?.find(c => c.id === data.customer_id)?.name,
               status: 'active'
             })
-            
+
             // 입고 이동 추가
             await inventoryAPI.createMovement({
               product_id: item.product_id,
@@ -231,29 +255,29 @@ export default function TransactionModal({
             })
           }
         }
-        
+
         // 매출(판매) 거래
         else if (data.transaction_type === 'sales') {
           // 상품 별 출고 처리 (FIFO 원칙)
           for (const item of data.items) {
             // 해당 상품의 활성 로트 조회
             const activeLots = await inventoryAPI.getActiveLots(item.product_id)
-            
+
             // 출고할 총량
             let remainingQty = item.quantity
-            
+
             for (const lot of activeLots) {
               if (remainingQty <= 0) break
-              
+
               // 출고할 수량 (현재 로트의 남은 수량과 출고할 남은 수량 중 작은 값)
               const outQty = Math.min(remainingQty, lot.remaining_quantity)
-              
+
               // 로트 업데이트
               await inventoryAPI.updateLot(lot.id!, {
                 remaining_quantity: lot.remaining_quantity - outQty,
                 status: lot.remaining_quantity - outQty <= 0 ? 'finished' : 'active'
               })
-              
+
               // 출고 이동 추가
               await inventoryAPI.createMovement({
                 product_id: item.product_id,
@@ -269,24 +293,25 @@ export default function TransactionModal({
                 notes: `매출 거래 ${newTransaction.id}`,
                 product_name: item.product_name
               })
-              
+
               remainingQty -= outQty
             }
-            
+
             if (remainingQty > 0) {
               console.warn(`경고: 재고가 부족합니다. 부족량: ${remainingQty}kg, 상품: ${item.product_name}`)
             }
           }
         }
-        
+
         // 재고 통계 업데이트
         await inventoryAPI.getStats()
       }
-      
+
       return newTransaction
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['transactions'] })
+      queryClient.invalidateQueries({ queryKey: ['customers'] })  // 🎯 추가!
       queryClient.invalidateQueries({ queryKey: ['inventory'] })
       queryClient.invalidateQueries({ queryKey: ['inventory-stats'] })
       queryClient.invalidateQueries({ queryKey: ['stock-movements'] })
@@ -307,6 +332,7 @@ export default function TransactionModal({
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['transactions'] })
+      queryClient.invalidateQueries({ queryKey: ['customers'] })  // 🎯 추가!
       queryClient.invalidateQueries({ queryKey: ['inventory'] })
       queryClient.invalidateQueries({ queryKey: ['inventory-stats'] })
       handleClose()
@@ -358,40 +384,49 @@ export default function TransactionModal({
   const handleUpdateItem = (index: number, field: keyof TransactionItem, value: any) => {
     const updatedItems = [...items]
     updatedItems[index] = { ...updatedItems[index], [field]: value }
-    
+
     // 상품 선택 시 자동 정보 로딩
     if (field === 'product_id' && value > 0) {
       const product = products?.find(p => p.id === value)
       if (product) {
         updatedItems[index].product_name = product.name
         updatedItems[index].unit = product.unit
-        
-        // 참고가격 설정
-        if (product.unit_price) {
+
+        // 해당 거래처와 해당 상품의 최근 거래 정보 가져오기
+        const stats = productUsageStats.get(value)
+
+        // 🎯 1순위: 최근 거래 단가 (기존에 거래했던 금액)
+        if (stats && stats.lastUnitPrice > 0) {
+          console.log(`💰 최근 거래 단가 자동 로딩: ${product.name} = ${stats.lastUnitPrice}원`)
+          updatedItems[index].unit_price = stats.lastUnitPrice
+        }
+        // 2순위: 상품 기본 가격
+        else if (product.unit_price) {
           updatedItems[index].unit_price = product.unit_price
         }
-        
-        // 해당 거래처와 해당 상품의 최근 거래 수량 가져오기
-        const stats = productUsageStats.get(value)
+
+        // 🎯 최근 거래 수량 자동 로딩
         if (stats && stats.lastQuantity > 0) {
+          console.log(`📦 최근 거래 수량 자동 로딩: ${product.name} = ${stats.lastQuantity}${product.unit}`)
           updatedItems[index].quantity = stats.lastQuantity
         }
-        
-        // 🎯 최근 이력번호 자동 입력!
+
+        // 🎯 최근 이력번호 자동 입력
         if (stats && stats.lastTraceability) {
+          console.log(`🔢 최근 이력번호 자동 로딩: ${product.name} = ${stats.lastTraceability}`)
           updatedItems[index].traceability_number = stats.lastTraceability
         }
-        
+
         // 총액 자동 계산
         updatedItems[index].total_price = updatedItems[index].quantity * updatedItems[index].unit_price
       }
     }
-    
+
     // 수량/단가 변경 시 총액 재계산
     if (field === 'quantity' || field === 'unit_price') {
       updatedItems[index].total_price = updatedItems[index].quantity * updatedItems[index].unit_price
     }
-    
+
     setItems(updatedItems)
   }
 
@@ -408,34 +443,48 @@ export default function TransactionModal({
   }
 
   // 계산된 값들 (VAT 포함/미포함 고려)
-  const totalAmount = items.reduce((sum, item) => sum + item.total_price, 0)
-  
+  // payment 타입일 때는 수금 금액 사용
+  const totalAmount = formData.transaction_type === 'payment'
+    ? paymentAmount
+    : items.reduce((sum, item) => sum + item.total_price, 0)
+
   // VAT 미포함 시: 공급가액 = totalAmount, 부가세 = totalAmount * 0.1
   // VAT 포함 시: 공급가액 = totalAmount / 1.1, 부가세 = totalAmount / 11
   const taxAmount = Math.round(isVatIncluded ? totalAmount / 11 : totalAmount * 0.1)
   const displayTotalAmount = isVatIncluded ? totalAmount : totalAmount + taxAmount
-  
-  const isFormValid = formData.customer_id > 0 && items.length > 0
+
+  // payment 타입일 때는 상품 필요 없음
+  const isFormValid = formData.customer_id > 0 && (
+    formData.transaction_type === 'payment'
+      ? paymentAmount > 0
+      : items.length > 0
+  )
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault()
-    
+
     // 유효성 검사
     if (!isFormValid) {
-      alert('거래처와 상품을 모두 입력해주세요.')
+      if (formData.transaction_type === 'payment') {
+        alert('거래처와 수금 금액을 입력해주세요.')
+      } else {
+        alert('거래처와 상품을 모두 입력해주세요.')
+      }
       return
     }
 
-    // 상품별 유효성 검사
-    for (let i = 0; i < items.length; i++) {
-      const item = items[i]
-      if (!item.product_id || item.quantity <= 0 || item.unit_price <= 0) {
-        alert(`${i + 1}번째 상품의 정보를 완성해주세요.`)
-        return
-      }
-      if (!item.traceability_number.trim()) {
-        alert(`${i + 1}번째 상품의 이력번호를 입력해주세요.`)
-        return
+    // 상품별 유효성 검사 (payment 타입이 아닐 때만)
+    if (formData.transaction_type !== 'payment') {
+      for (let i = 0; i < items.length; i++) {
+        const item = items[i]
+        if (!item.product_id || item.quantity <= 0 || item.unit_price <= 0) {
+          alert(`${i + 1}번째 상품의 정보를 완성해주세요.`)
+          return
+        }
+        if (!item.traceability_number.trim()) {
+          alert(`${i + 1}번째 상품의 이력번호를 입력해주세요.`)
+          return
+        }
       }
     }
 
@@ -450,7 +499,8 @@ export default function TransactionModal({
       ...formData,
       total_amount: displayTotalAmount,  // VAT 포함/미포함에 따른 최종 금액
       tax_amount: taxAmount,
-      items: items
+      items: items,
+      reference_payment_id: selectedPaymentId  // 🆕 선택한 수금 거래 참조
     }
 
     // 데이터 확인용 로그
@@ -475,7 +525,7 @@ export default function TransactionModal({
   return (
     <div className="fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full z-50">
       <div className="relative top-4 mx-auto max-w-4xl bg-white rounded-lg shadow-xl mb-8">
-        
+
         {/* 헤더 */}
         <div className="flex justify-between items-center p-6 border-b border-gray-200 bg-white rounded-t-lg">
           <div>
@@ -503,35 +553,94 @@ export default function TransactionModal({
               formData={formData}
               customers={customers}
               onFormChange={handleFormChange}
+              paymentAmount={paymentAmount}
+              onPaymentAmountChange={setPaymentAmount}
             />
           </div>
 
-          {/* 거래 상품 섹션 */}
-          <div className="p-6 border-b border-gray-200">
-            <div className="flex justify-between items-center mb-4">
-              <h3 className="text-lg font-medium text-gray-900">거래 상품</h3>
-              <button
-                type="button"
-                onClick={handleAddItem}
-                disabled={formData.customer_id === 0 || isSubmitting}
-                className="inline-flex items-center px-4 py-2 border border-transparent shadow-sm text-sm font-medium rounded-md text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 disabled:opacity-50 disabled:cursor-not-allowed"
-              >
-                + 상품 추가
-              </button>
+          {/* 거래 상품 섹션 - payment 타입일 때는 숨김 */}
+          {formData.transaction_type !== 'payment' && (
+            <div className="p-6 border-b border-gray-200">
+              <div className="flex justify-between items-center mb-4">
+                <h3 className="text-lg font-medium text-gray-900">거래 상품</h3>
+                <button
+                  type="button"
+                  onClick={handleAddItem}
+                  disabled={formData.customer_id === 0 || isSubmitting}
+                  className="inline-flex items-center px-4 py-2 border border-transparent shadow-sm text-sm font-medium rounded-md text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  + 상품 추가
+                </button>
+              </div>
+
+              <TransactionItemsList
+                items={items}
+                products={sortedProducts}
+                customerId={formData.customer_id}
+                frequentProducts={frequentProducts}  // 🎉 추가
+                allTransactions={allTransactions}     // 🎉 추가
+                onAddItem={handleAddItem}
+                onUpdateItem={handleUpdateItem}
+                onRemoveItem={handleRemoveItem}
+                onExclude={handleExcludeProduct}      // 🎉 추가
+              />
+            </div>)}
+
+          {/* 🆕 최근 수금 내역 - 맨 마지막으로 이동 */}
+          {formData.transaction_type === 'sales' && recentPayments && recentPayments.length > 0 && (
+            <div className="p-6 border-b border-gray-200 bg-gradient-to-r from-green-50 to-emerald-50">
+              <div className="border-2 border-green-400 rounded-lg p-5 shadow-md">
+                <div className="flex items-center mb-4">
+                  <div className="w-12 h-12 bg-green-500 rounded-full flex items-center justify-center mr-3">
+                    <span className="text-2xl">💰</span>
+                  </div>
+                  <div>
+                    <h4 className="text-lg font-bold text-green-900">미처리 수금 내역</h4>
+                    <p className="text-sm text-green-700">거래증에 표시할 입금 내역을 선택하세요 ({recentPayments.length}건)</p>
+                  </div>
+                </div>
+
+                <div className="space-y-2">
+                  {recentPayments.map(payment => (
+                    <label
+                      key={payment.id}
+                      className="flex items-center p-4 bg-white border-2 border-green-200 rounded-lg hover:border-green-400 hover:shadow-md cursor-pointer transition-all"
+                    >
+                      <input
+                        type="checkbox"
+                        checked={selectedPaymentId === payment.id}
+                        onChange={(e) => setSelectedPaymentId(e.target.checked ? payment.id! : null)}
+                        className="h-5 w-5 text-green-600 focus:ring-green-500 border-gray-300 rounded mr-4"
+                      />
+                      <div className="flex-1">
+                        <div className="flex items-center justify-between">
+                          <span className="font-semibold text-gray-900 text-base">
+                            📅 {new Date(payment.transaction_date).toLocaleDateString('ko-KR', {
+                              year: 'numeric',
+                              month: 'long',
+                              day: 'numeric'
+                            })}
+                          </span>
+                          <span className="text-2xl font-bold text-green-600">
+                            +{payment.total_amount.toLocaleString()}원
+                          </span>
+                        </div>
+                        <span className="text-xs text-gray-500 mt-1 inline-block">
+                          거래 ID: #{payment.id}
+                        </span>
+                      </div>
+                    </label>
+                  ))}
+                </div>
+
+                <div className="mt-4 p-3 bg-green-100 border border-green-300 rounded-lg">
+                  <p className="text-sm text-green-800 font-medium">
+                    ✅ 선택한 수금 내역이 거래증에 함께 인쇄됩니다
+                  </p>
+                </div>
+              </div>
             </div>
-
-            <TransactionItemsList
-              items={items}
-              products={sortedProducts}
-              customerId={formData.customer_id}
-              frequentProducts={frequentProducts}  // 🎉 추가
-              allTransactions={allTransactions}     // 🎉 추가
-              onAddItem={handleAddItem}
-              onUpdateItem={handleUpdateItem}
-              onRemoveItem={handleRemoveItem}
-              onExclude={handleExcludeProduct}      // 🎉 추가
-            />
-          </div>
+          )}
 
           {/* 거래 요약 및 액션 버튼 */}
           <div className="p-6 bg-gray-50 rounded-b-lg">
@@ -558,7 +667,7 @@ export default function TransactionModal({
               >
                 취소
               </button>
-              
+
               <button
                 type="submit"
                 disabled={!isFormValid || isSubmitting}

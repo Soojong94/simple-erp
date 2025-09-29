@@ -62,6 +62,7 @@ export interface Customer {
   type: 'customer' | 'supplier'  // customer_type → type 으로 통일
   contact_person?: string
   is_active: boolean
+  outstanding_balance?: number  // 🆕 미수금 (누적)
   created_at?: string
 }
 
@@ -81,13 +82,18 @@ export interface Transaction {
   id?: number
   customer_id: number
   customer_name?: string  // 조인 결과용
-  transaction_type: 'sales' | 'purchase'
+  transaction_type: 'sales' | 'purchase' | 'payment'  // 🆕 payment 추가
   transaction_date: string
   due_date?: string
   total_amount: number
   tax_amount: number
   notes?: string
   created_at?: string
+  
+  // 🆕 수금 거래 참조 관련
+  reference_payment_id?: number  // 참조하는 수금 거래 ID
+  is_displayed_in_invoice?: boolean  // 거래증에 표시되었는지
+  displayed_in_transaction_id?: number  // 어느 거래에 표시되었는지
 }
 
 export interface TransactionItem {
@@ -107,7 +113,7 @@ export interface TransactionWithItems {
   id?: number
   customer_id: number
   customer_name: string
-  transaction_type: 'sales' | 'purchase'
+  transaction_type: 'sales' | 'purchase' | 'payment'  // 🆕 payment 추가
   transaction_date: string
   due_date?: string
   total_amount: number
@@ -115,6 +121,11 @@ export interface TransactionWithItems {
   notes?: string
   created_at?: string
   items: TransactionItem[]
+  
+  // 🆕 수금 거래 참조 관련
+  reference_payment_id?: number  // 참조하는 수금 거래 ID
+  is_displayed_in_invoice?: boolean  // 거래증에 표시되었는지 (payment 타입만)
+  displayed_in_transaction_id?: number  // 어느 거래에 표시되었는지 (payment 타입만)
 }
 
 export interface TaxInvoice {
@@ -176,6 +187,14 @@ export interface DeliveryNote {
   customer: Customer
   company: Company
   print_date: string
+}
+
+// 🆕 거래명세서 템플릿 타입
+export type InvoiceTemplate = 'default' | 'striped'
+
+export interface InvoiceGenerateOptions {
+  template: InvoiceTemplate
+  showOutstandingBalance?: boolean  // 미수금 표시 여부
 }
 
 // 정렬 관련 타입 정의

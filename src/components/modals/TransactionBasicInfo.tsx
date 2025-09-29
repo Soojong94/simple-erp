@@ -3,16 +3,24 @@ import type { Customer } from '../../types'
 interface TransactionBasicInfoProps {
   formData: {
     customer_id: number
-    transaction_type: 'sales' | 'purchase'
+    transaction_type: 'sales' | 'purchase' | 'payment'  // 🆕 payment 추가
     transaction_date: string
     due_date: string
     notes: string
   }
   customers?: Customer[]
   onFormChange: (field: string, value: any) => void
+  paymentAmount?: number  // 🆕 수금 금액
+  onPaymentAmountChange?: (amount: number) => void  // 🆕 수금 금액 변경 핸들러
 }
 
-export default function TransactionBasicInfo({ formData, customers, onFormChange }: TransactionBasicInfoProps) {
+export default function TransactionBasicInfo({ 
+  formData, 
+  customers, 
+  onFormChange,
+  paymentAmount,
+  onPaymentAmountChange
+}: TransactionBasicInfoProps) {
   const selectedCustomer = customers?.find(c => c.id === formData.customer_id)
 
   return (
@@ -55,6 +63,7 @@ export default function TransactionBasicInfo({ formData, customers, onFormChange
           >
             <option value="sales">💰 매출</option>
             <option value="purchase">📦 매입</option>
+            <option value="payment">💵 수금 처리</option>
           </select>
         </div>
 
@@ -82,6 +91,29 @@ export default function TransactionBasicInfo({ formData, customers, onFormChange
           />
         </div>
       </div>
+
+      {/* 🆕 수금 금액 (수금 처리 타입일 때만 표시) */}
+      {formData.transaction_type === 'payment' && (
+        <div className="bg-green-50 border border-green-200 rounded-lg p-4">
+          <label className="block text-sm font-medium text-green-800 mb-2">
+            💵 수금 금액 *
+          </label>
+          <input
+            type="number"
+            value={paymentAmount}
+            onChange={(e) => onPaymentAmountChange?.(Number(e.target.value))}
+            min="0"
+            step="1000"
+            className="w-full px-3 py-2 border border-green-300 rounded-md text-right font-mono text-lg focus:outline-none focus:ring-green-500 focus:border-green-500"
+            placeholder="입금받은 금액을 입력하세요"
+          />
+          {selectedCustomer && (
+            <p className="mt-2 text-sm text-green-700">
+              현재 미수금: {(selectedCustomer.outstanding_balance || 0).toLocaleString()}원
+            </p>
+          )}
+        </div>
+      )}
 
       {/* 메모 */}
       <div>

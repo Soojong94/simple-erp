@@ -425,8 +425,84 @@ export const transactionAPI = {
       transactions.push(newTransaction)
       setToStorage(STORAGE_KEYS.TRANSACTIONS, transactions)
       
+      // 🆕 선택한 수금 거래 업데이트
+      if (transactionData.reference_payment_id) {
+        const paymentIndex = transactions.findIndex(
+          t => t.id === transactionData.reference_payment_id
+        )
+        
+        if (paymentIndex >= 0) {
+          transactions[paymentIndex].is_displayed_in_invoice = true
+          transactions[paymentIndex].displayed_in_transaction_id = newTransaction.id
+          setToStorage(STORAGE_KEYS.TRANSACTIONS, transactions)
+          
+          console.log(`✅ 수금 거래 #${transactionData.reference_payment_id}를 거래 #${newTransaction.id}에 연결`)
+        }
+      }
+      
       // 🆕 재고 자동 처리
       await inventoryAPI.processTransactionInventory(newTransaction)
+      
+      // 🆕 미수금 처리
+      console.log(`🔍 미수금 체크: transaction_type=${transactionData.transaction_type}, customer=`, customer)
+      
+      // 매출 거래: 미수금 증가
+      if (transactionData.transaction_type === 'sales' && customer) {
+        console.log(`💰 미수금 증가 조건 충족 - 실행 중...`)
+        
+        const customerIndex = customers.findIndex(c => c.id === transactionData.customer_id)
+        console.log(`  거래처 인덱스: ${customerIndex}`)
+        
+        if (customerIndex >= 0) {
+          const currentBalance = Number(customers[customerIndex].outstanding_balance) || 0
+          const newBalance = currentBalance + Number(newTransaction.total_amount)
+          
+          console.log(`  기존 미수금: ${currentBalance}원`)
+          console.log(`  거래 금액: ${newTransaction.total_amount}원`)
+          console.log(`  새 미수금: ${newBalance}원`)
+          
+          customers[customerIndex].outstanding_balance = newBalance
+          setToStorage(STORAGE_KEYS.CUSTOMERS, customers)
+          
+          console.log(`✅ 미수금 자동 증가: ${customer.name} +${newTransaction.total_amount}원 (${currentBalance}원 → ${newBalance}원)`)
+          console.log(`  localStorage 저장 완료:`, STORAGE_KEYS.CUSTOMERS)
+        } else {
+          console.error(`❌ 거래처를 찾을 수 없음: customer_id=${transactionData.customer_id}`)
+        }
+      }
+      // 🆕 수금 처리: 미수금 감소
+      else if (transactionData.transaction_type === 'payment' && customer) {
+        console.log(`💵 수금 처리 조건 충족 - 실행 중...`)
+        
+        const customerIndex = customers.findIndex(c => c.id === transactionData.customer_id)
+        console.log(`  거래처 인덱스: ${customerIndex}`)
+        
+        if (customerIndex >= 0) {
+          const currentBalance = Number(customers[customerIndex].outstanding_balance) || 0
+          const paymentAmount = Number(newTransaction.total_amount)
+          const newBalance = Math.max(0, currentBalance - paymentAmount)  // 음수 방지
+          
+          console.log(`  기존 미수금: ${currentBalance}원`)
+          console.log(`  수금 금액: ${paymentAmount}원`)
+          console.log(`  새 미수금: ${newBalance}원`)
+          
+          customers[customerIndex].outstanding_balance = newBalance
+          setToStorage(STORAGE_KEYS.CUSTOMERS, customers)
+          
+          console.log(`✅ 미수금 자동 감소: ${customer.name} -${paymentAmount}원 (${currentBalance}원 → ${newBalance}원)`)
+          console.log(`  localStorage 저장 완료:`, STORAGE_KEYS.CUSTOMERS)
+        } else {
+          console.error(`❌ 거래처를 찾을 수 없음: customer_id=${transactionData.customer_id}`)
+        }
+      } else {
+        console.log(`⚠️ 미수금 증가 조건 불충족`)
+        if (transactionData.transaction_type !== 'sales') {
+          console.log(`  → 거래 타입이 '매출'이 아님: ${transactionData.transaction_type}`)
+        }
+        if (!customer) {
+          console.log(`  → 거래처 객체가 없음`)
+        }
+      }
       
       backupTrigger.trigger() // 자동 백업 트리거
       console.log(`✅ 거래 #${newTransaction.id} 생성 완료 - 재고 자동 처리됨`)
@@ -448,6 +524,32 @@ export const transactionAPI = {
       
       // 🆕 기존 재고 영향 취소
       await cancelTransactionInventoryEffect(oldTransaction)
+      
+      // 🆕 미수금 조정 (매출 거래일 경우)
+      const customers = getFromStorage<Customer[]>(STORAGE_KEYS.CUSTOMERS, [])
+      if (oldTransaction.transaction_type === 'sales' && oldTransaction.customer_id) {
+        const customerIndex = customers.findIndex(c => c.id === oldTransaction.customer_id)
+        if (customerIndex >= 0) {
+          const currentBalance = Number(customers[customerIndex].outstanding_balance) || 0
+          const oldAmount = Number(oldTransaction.total_amount) || 0
+          const newAmount = Number(transactionData.total_amount) || 0
+          const amountDiff = newAmount - oldAmount
+          
+          console.log(`📊 미수금 조정 계산:`, {
+            customer: customers[customerIndex].name,
+            currentBalance,
+            oldAmount,
+            newAmount,
+            amountDiff
+          })
+          
+          // 차액만큼 미수금 조정
+          customers[customerIndex].outstanding_balance = currentBalance + amountDiff
+          setToStorage(STORAGE_KEYS.CUSTOMERS, customers)
+          
+          console.log(`✅ 미수금 자동 조정: ${customers[customerIndex].name} ${amountDiff >= 0 ? '+' : ''}${amountDiff}원 (${currentBalance}원 → ${currentBalance + amountDiff}원)`)
+        }
+      }
       
       // 거래 수정
       const updatedTransaction = { ...transactions[index], ...transactionData }
