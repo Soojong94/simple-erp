@@ -8,9 +8,11 @@ import {
   FileText, 
   BarChart3, 
   Settings,
-  Archive
+  Archive,
+  LogOut
 } from 'lucide-react'
 import { clsx } from 'clsx'
+import { useSession } from './AuthWrapper'
 
 interface LayoutProps {
   children: ReactNode
@@ -28,6 +30,13 @@ const navigation = [
 
 export default function Layout({ children }: LayoutProps) {
   const location = useLocation()
+  const { session, logout: handleLogout } = useSession()
+
+  const onLogout = () => {
+    if (confirm('로그아웃 하시겠습니까?')) {
+      handleLogout()
+    }
+  }
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -60,6 +69,36 @@ export default function Layout({ children }: LayoutProps) {
             })}
           </ul>
         </nav>
+        
+        {/* 사용자 정보 및 로그아웃 */}
+        <div className="absolute bottom-0 left-0 right-0 p-4 border-t border-gray-200">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center">
+              <div className="flex-shrink-0">
+                <div className="h-8 w-8 rounded-full bg-blue-100 flex items-center justify-center">
+                  <span className="text-blue-600 text-sm font-medium">
+                    {(session?.display_name || 'U').charAt(0).toUpperCase()}
+                  </span>
+                </div>
+              </div>
+              <div className="ml-3">
+                <p className="text-sm font-medium text-gray-900 truncate">
+                  {session?.display_name || '사용자'}
+                </p>
+                <p className="text-xs text-gray-500 truncate">
+                  {session?.role === 'admin' ? '관리자' : '사용자'} • ID: {session?.company_id || 1}
+                </p>
+              </div>
+            </div>
+            <button
+              onClick={onLogout}
+              className="ml-2 p-1 rounded-md text-gray-400 hover:text-gray-600 hover:bg-gray-100"
+              title="로그아웃"
+            >
+              <LogOut className="h-4 w-4" />
+            </button>
+          </div>
+        </div>
       </div>
 
       {/* Main content */}

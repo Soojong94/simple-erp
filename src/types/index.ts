@@ -1,3 +1,56 @@
+// ============= 사용자 관리 시스템 =============
+
+export interface User {
+  id: number
+  username: string          // 로그인 ID
+  display_name: string      // 표시명
+  email?: string           // 이메일 (선택)
+  password_hash: string    // 비밀번호 해시
+  role: 'admin' | 'user'   // 권한
+  company_id: number       // 소속 회사 ID
+  is_active: boolean
+  last_login?: string
+  created_at: string
+}
+
+export interface UserSession {
+  user_id: number
+  username: string
+  display_name: string
+  company_id: number
+  role: 'admin' | 'user'
+  login_time: string
+}
+
+export interface LoginCredentials {
+  username: string
+  password: string
+  remember_me?: boolean
+}
+
+export interface RegisterData {
+  username: string
+  password: string
+  confirmPassword: string
+  display_name: string
+  company_name: string
+  email?: string
+}
+
+export interface LoginResult {
+  success: boolean
+  session?: UserSession
+  error?: string
+}
+
+export interface RegisterResult {
+  success: boolean
+  user?: User
+  error?: string
+}
+
+// ============= 기존 타입들 =============
+
 export interface Customer {
   id?: number
   name: string

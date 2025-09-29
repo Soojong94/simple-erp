@@ -2,26 +2,35 @@ import { invoke } from '@tauri-apps/api/tauri'
 import type { Customer, Product, TransactionWithItems, TaxInvoice, Company, CustomerProductPrice, PriceHistory, ProductInventory, StockMovement, StockLot, InventoryStats } from '../types'
 import { debounce } from './utils'
 import { exportBackup, shouldBackupToday, isAutoBackupEnabled } from './backup'
+import { getCurrentSession } from './auth'
 
 // Tauri 환경 감지
 const isTauri = () => {
   return typeof window !== 'undefined' && window.__TAURI_IPC__ !== undefined
 }
 
-// localStorage 키 상수
+// 회사별 localStorage 키 생성
+const getCompanyStorageKey = (entity: string): string => {
+  const session = getCurrentSession()
+  if (!session) {
+    return `simple-erp-${entity}`
+  }
+  return `simple-erp-c${session.company_id}-${entity}`
+}
+
+// localStorage 키 상수 - getter로 동적으로 회사별 분리
 const STORAGE_KEYS = {
-  CUSTOMERS: 'simple-erp-customers',
-  PRODUCTS: 'simple-erp-products',
-  TRANSACTIONS: 'simple-erp-transactions',
-  CUSTOMER_PRODUCT_PRICES: 'simple-erp-customer-product-prices',
-  COMPANY: 'simple-erp-company',
-  NEXT_IDS: 'simple-erp-next-ids',
-  // 재고 관리 시스템
-  PRODUCT_INVENTORY: 'simple-erp-product-inventory',
-  STOCK_MOVEMENTS: 'simple-erp-stock-movements',
-  STOCK_LOTS: 'simple-erp-stock-lots',
-  INVENTORY_SETTINGS: 'simple-erp-inventory-settings'
-} as const
+  get CUSTOMERS() { return getCompanyStorageKey('customers') },
+  get PRODUCTS() { return getCompanyStorageKey('products') },
+  get TRANSACTIONS() { return getCompanyStorageKey('transactions') },
+  get CUSTOMER_PRODUCT_PRICES() { return getCompanyStorageKey('customer-product-prices') },
+  get COMPANY() { return getCompanyStorageKey('company') },
+  get NEXT_IDS() { return getCompanyStorageKey('next-ids') },
+  get PRODUCT_INVENTORY() { return getCompanyStorageKey('product-inventory') },
+  get STOCK_MOVEMENTS() { return getCompanyStorageKey('stock-movements') },
+  get STOCK_LOTS() { return getCompanyStorageKey('stock-lots') },
+  get INVENTORY_SETTINGS() { return getCompanyStorageKey('inventory-settings') }
+}
 
 // localStorage 헬퍼 함수들
 const getFromStorage = <T>(key: string, defaultValue: T): T => {
@@ -52,19 +61,22 @@ const getNextId = (entityType: string): number => {
   return nextId
 }
 
-// 초기 데이터 설정 (최초 실행 시에만)
-const initializeData = () => {
+// 초기 데이터 설정 (회사별로 최초 실행 시에만)
+const initializeCompanyData = () => {
+  const session = getCurrentSession()
+  if (!session) return
+  
   // 회사 정보 초기화
   const existingCompany = getFromStorage<Company | null>(STORAGE_KEYS.COMPANY, null)
   if (!existingCompany) {
     const initialCompany: Company = {
-      id: 1,
-      name: '고기유통 주식회사',
+      id: session.company_id,
+      name: `회사 ${session.company_id}`,
       business_number: '111-22-33333',
-      ceo_name: '홍길동',
+      ceo_name: session.display_name,
       address: '서울시 중구 세종대로 110',
       phone: '02-1111-2222',
-      email: 'info@meatdist.co.kr',
+      email: 'info@company.co.kr',
       business_type: '축산물 유통업',
       tax_invoice_api_key: '',
       tax_invoice_cert_file: '',
@@ -85,9 +97,9 @@ const initializeData = () => {
   if (customerProductPrices.length === 0) setToStorage(STORAGE_KEYS.CUSTOMER_PRODUCT_PRICES, [])
 }
 
-// 앱 시작 시 초기화
-if (typeof window !== 'undefined') {
-  initializeData()
+// 회사별 데이터 초기화 함수 (외부에서 호출)
+export const initializeCurrentCompanyData = () => {
+  initializeCompanyData()
 }
 
 // 지연을 시뮬레이션하는 함수
@@ -149,6 +161,7 @@ export const customerAPI = {
       return invoke<Customer>('get_customer_by_id', { id })
     } else {
       await delay(200)
+      const STORAGE_KEYS = getStorageKeys()
       const customers = getFromStorage<Customer[]>(STORAGE_KEYS.CUSTOMERS, [])
       const customer = customers.find(c => c.id === id)
       if (!customer) throw new Error('Customer not found')
@@ -161,6 +174,7 @@ export const customerAPI = {
       return invoke<Customer>('create_customer', { request: customerData })
     } else {
       await delay(500)
+      const STORAGE_KEYS = getStorageKeys()
       const customers = getFromStorage<Customer[]>(STORAGE_KEYS.CUSTOMERS, [])
       const newCustomer: Customer = {
         ...customerData,
@@ -179,6 +193,7 @@ export const customerAPI = {
       return invoke<Customer>('update_customer', { id, request: customerData })
     } else {
       await delay(400)
+      const STORAGE_KEYS = getStorageKeys()
       const customers = getFromStorage<Customer[]>(STORAGE_KEYS.CUSTOMERS, [])
       const index = customers.findIndex(c => c.id === id)
       if (index === -1) throw new Error('Customer not found')
@@ -194,6 +209,7 @@ export const customerAPI = {
       return invoke<void>('delete_customer', { id })
     } else {
       await delay(300)
+      const STORAGE_KEYS = getStorageKeys()
       const customers = getFromStorage<Customer[]>(STORAGE_KEYS.CUSTOMERS, [])
       const index = customers.findIndex(c => c.id === id)
       if (index === -1) throw new Error('Customer not found')
@@ -208,6 +224,7 @@ export const customerAPI = {
       return invoke<Customer[]>('search_customers', { query, customer_type: customerType })
     } else {
       await delay(200)
+      const STORAGE_KEYS = getStorageKeys()
       const customers = getFromStorage<Customer[]>(STORAGE_KEYS.CUSTOMERS, [])
       const filtered = customers.filter(c => {
         const matchesType = !customerType || c.type === customerType
