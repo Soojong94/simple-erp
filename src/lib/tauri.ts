@@ -385,7 +385,12 @@ export const transactionAPI = {
       
       transactions.push(newTransaction)
       setToStorage(STORAGE_KEYS.TRANSACTIONS, transactions)
+      
+      // 🆕 재고 자동 처리
+      await inventoryAPI.processTransactionInventory(newTransaction)
+      
       backupTrigger.trigger() // 자동 백업 트리거
+      console.log(`✅ 거래 #${newTransaction.id} 생성 완료 - 재고 자동 처리됨`)
       return newTransaction
     }
   },
@@ -398,10 +403,24 @@ export const transactionAPI = {
       const transactions = getFromStorage<TransactionWithItems[]>(STORAGE_KEYS.TRANSACTIONS, [])
       const index = transactions.findIndex(t => t.id === id)
       if (index === -1) throw new Error('Transaction not found')
-      transactions[index] = { ...transactions[index], ...transactionData }
+      
+      // 🆕 기존 거래 정보 저장
+      const oldTransaction = { ...transactions[index] }
+      
+      // 🆕 기존 재고 영향 취소
+      await cancelTransactionInventoryEffect(oldTransaction)
+      
+      // 거래 수정
+      const updatedTransaction = { ...transactions[index], ...transactionData }
+      transactions[index] = updatedTransaction
       setToStorage(STORAGE_KEYS.TRANSACTIONS, transactions)
+      
+      // 🆕 새로운 재고 영향 적용
+      await inventoryAPI.processTransactionInventory(updatedTransaction)
+      
       backupTrigger.trigger() // 자동 백업 트리거
-      return transactions[index]
+      console.log(`✅ 거래 #${id} 수정 완료 - 재고 재계산됨`)
+      return updatedTransaction
     }
   },
   
@@ -411,11 +430,21 @@ export const transactionAPI = {
     } else {
       await delay(400)
       const transactions = getFromStorage<TransactionWithItems[]>(STORAGE_KEYS.TRANSACTIONS, [])
-      const index = transactions.findIndex(t => t.id === id)
-      if (index === -1) throw new Error('Transaction not found')
-      transactions.splice(index, 1)
+      const transactionIndex = transactions.findIndex(t => t.id === id)
+      if (transactionIndex === -1) throw new Error('Transaction not found')
+      
+      // 🆕 삭제할 거래 정보 저장
+      const transactionToDelete = transactions[transactionIndex]
+      
+      // 🆕 재고 복원 처리
+      await cancelTransactionInventoryEffect(transactionToDelete)
+      
+      // 거래 삭제
+      transactions.splice(transactionIndex, 1)
       setToStorage(STORAGE_KEYS.TRANSACTIONS, transactions)
       backupTrigger.trigger() // 자동 백업 트리거
+      
+      console.log(`✅ 거래 #${id} 삭제 완료 - 재고 복원됨`)
     }
   },
   
@@ -440,6 +469,90 @@ export const transactionAPI = {
 }
 
 // ============= 재고 관리 시스템 API =============
+
+/**
+ * 🔄 거래의 재고 영향을 취소하는 함수
+ * (거래 삭제나 수정 시 기존 재고 영향을 되돌림)
+ */
+const cancelTransactionInventoryEffect = async (transaction: TransactionWithItems) => {
+  if (!transaction.items || transaction.items.length === 0) return
+  
+  console.log(`🔄 거래 #${transaction.id}의 재고 영향 취소 시작...`)
+  
+  for (const item of transaction.items) {
+    if (!item.product_id) continue
+    
+    if (transaction.transaction_type === 'purchase') {
+      // 매입 취소 → 입고 취소 (로트 삭제/비활성화)
+      const lots = getFromStorage<StockLot[]>(STORAGE_KEYS.STOCK_LOTS, [])
+      const relatedLots = lots.filter(lot => 
+        lot.product_id === item.product_id &&
+        (lot.lot_number?.includes(`-${transaction.id}-`) || 
+         lot.lot_number?.includes(`${transaction.transaction_date}`)) &&
+        lot.status === 'active'
+      )
+      
+      for (const lot of relatedLots) {
+        // 로트 취소 처리
+        lot.status = 'cancelled'
+        lot.remaining_quantity = 0
+        
+        // 취소 이동 기록
+        await inventoryAPI.createMovement({
+          product_id: item.product_id,
+          movement_type: 'adjust',
+          quantity: -lot.initial_quantity, // 음수로 차감
+          lot_number: lot.lot_number,
+          transaction_id: transaction.id,
+          reference_type: 'cancellation',
+          notes: `거래 삭제/수정으로 인한 입고 취소 (거래 #${transaction.id})`
+        })
+        
+        console.log(`  📦 로트 ${lot.lot_number} 취소됨 (-${lot.initial_quantity}kg)`)
+      }
+      
+      setToStorage(STORAGE_KEYS.STOCK_LOTS, lots)
+      
+    } else if (transaction.transaction_type === 'sales') {
+      // 매출 취소 → 출고 취소 (재고 복원)
+      const movements = getFromStorage<StockMovement[]>(STORAGE_KEYS.STOCK_MOVEMENTS, [])
+      const relatedMovements = movements.filter(m => 
+        m.transaction_id === transaction.id &&
+        m.movement_type === 'out'
+      )
+      
+      for (const movement of relatedMovements) {
+        // 반대 이동 생성 (출고 취소)
+        await inventoryAPI.createMovement({
+          product_id: movement.product_id,
+          movement_type: 'in',
+          quantity: movement.quantity,
+          lot_number: movement.lot_number,
+          transaction_id: transaction.id,
+          reference_type: 'cancellation',
+          notes: `거래 삭제/수정으로 인한 출고 취소 (거래 #${transaction.id})`
+        })
+        
+        // 관련 로트에 수량 복원
+        if (movement.lot_number) {
+          const lots = getFromStorage<StockLot[]>(STORAGE_KEYS.STOCK_LOTS, [])
+          const lot = lots.find(l => l.lot_number === movement.lot_number)
+          if (lot) {
+            lot.remaining_quantity += movement.quantity
+            if (lot.status === 'finished') {
+              lot.status = 'active'
+            }
+            setToStorage(STORAGE_KEYS.STOCK_LOTS, lots)
+          }
+        }
+        
+        console.log(`  📤 출고 취소: ${movement.product_name} +${movement.quantity}kg`)
+      }
+    }
+  }
+  
+  console.log(`✅ 거래 #${transaction.id} 재고 영향 취소 완료`)
+}
 
 export const inventoryAPI = {
   // 재고 현황 관리
@@ -836,6 +949,8 @@ export const inventoryAPI = {
   processTransactionInventory: async (transaction: TransactionWithItems) => {
     if (!transaction.items || transaction.items.length === 0) return
     
+    console.log(`🔄 거래 #${transaction.id}의 재고 영향 적용 시작...`)
+    
     for (const item of transaction.items) {
       if (!item.product_id) continue
       
@@ -854,12 +969,12 @@ export const inventoryAPI = {
         })
         
         // 로트 생성 (유통기한: 입고일로부터 7일로 기본 설정)
-        const expiryDate = new Date()
+        const expiryDate = new Date(transaction.transaction_date)
         expiryDate.setDate(expiryDate.getDate() + 7)
         
         await inventoryAPI.createLot({
           product_id: item.product_id,
-          lot_number: `LOT-${new Date().toISOString().split('T')[0]}-${item.product_id}-${Math.random().toString(36).substr(2, 4).toUpperCase()}`,
+          lot_number: `LOT-${transaction.transaction_date}-${item.product_id}-${transaction.id}`,
           initial_quantity: item.quantity,
           remaining_quantity: item.quantity,
           expiry_date: expiryDate.toISOString().split('T')[0],
@@ -867,6 +982,9 @@ export const inventoryAPI = {
           supplier_id: transaction.customer_id,
           status: 'active'
         })
+        
+        console.log(`  📦 입고: ${item.product_name} +${item.quantity}kg`)
+        
       } else if (transaction.transaction_type === 'sales') {
         // 매출 → 출고 (FIFO)
         const activeLots = await inventoryAPI.getActiveLots(item.product_id)
@@ -895,14 +1013,17 @@ export const inventoryAPI = {
           })
           
           remainingQty -= deductQty
+          console.log(`  📤 출고: ${item.product_name} -${deductQty}kg (LOT: ${lot.lot_number})`)
         }
         
         // 재고 부족 경고
         if (remainingQty > 0) {
-          console.warn(`경고: ${item.product_name}의 재고가 부족합니다. 요청: ${item.quantity}kg, 가용: ${item.quantity - remainingQty}kg`)
+          console.warn(`⚠️ 재고 부족: ${item.product_name} - 요청: ${item.quantity}kg, 가용: ${item.quantity - remainingQty}kg`)
         }
       }
     }
+    
+    console.log(`✅ 거래 #${transaction.id} 재고 영향 적용 완료`)
   }
 }
 
