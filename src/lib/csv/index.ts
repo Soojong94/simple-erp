@@ -128,6 +128,9 @@ export const importProductsFromCSV = (csvContent: string): Promise<Product[]> =>
             const getUnitPrice = () => row['단가'] || row['unit_price'] || row['가격'] || row['참고가격']
             const getDescription = () => row['설명'] || row['description'] || row['상품설명']
             const getIsActive = () => row['활성상태'] || row['is_active'] || row['상태']
+            const getTraceability = () => row['이력번호'] || row['traceability_number']
+            const getOrigin = () => row['원산지'] || row['origin']
+            const getSlaughterhouse = () => row['도축장'] || row['slaughterhouse']
 
             // 필수 필드 검증
             const name = getName()
@@ -164,6 +167,9 @@ export const importProductsFromCSV = (csvContent: string): Promise<Product[]> =>
               unit: unit.trim(),
               unit_price,
               description: getDescription()?.trim() || '',
+              traceability_number: getTraceability()?.trim() || '',
+              origin: getOrigin()?.trim() || '',           // ✅ 추가
+              slaughterhouse: getSlaughterhouse()?.trim() || '',  // ✅ 추가
               is_active
             }
           })
@@ -187,6 +193,7 @@ export const importProductsFromCSV = (csvContent: string): Promise<Product[]> =>
 /**
  * 상품 CSV 내보내기 (한국어 컬럼명)
  */
+// 📍 exportProductsToCSV 함수 수정
 export const exportProductsToCSV = (products: Product[]): string => {
   const csvData = products.map(product => ({
     '상품명': product.name,
@@ -194,6 +201,9 @@ export const exportProductsToCSV = (products: Product[]): string => {
     '카테고리': product.category || '',
     '단위': product.unit,
     '단가': product.unit_price || '',
+    '이력번호': product.traceability_number || '',
+    '원산지': product.origin || '',           // ✅ 추가
+    '도축장': product.slaughterhouse || '',    // ✅ 추가
     '설명': product.description || '',
     '활성상태': product.is_active ? '활성' : '비활성',
     '등록일': product.created_at || ''
@@ -212,24 +222,27 @@ export const exportTransactionsToCSV = (transactions: TransactionWithItems[]): s
     if (transaction.items && transaction.items.length > 0) {
       // 거래 상품별로 행 생성
       transaction.items.forEach(item => {
-        csvData.push({
-          '거래번호': transaction.id,
-          '거래일': transaction.transaction_date,
-          '거래구분': transaction.transaction_type === 'sales' ? '매출' : '매입',
-          '거래처명': transaction.customer_name,
-          '상태': transaction.status === 'confirmed' ? '확정' :
-                  transaction.status === 'draft' ? '임시저장' : '취소',
-          '상품명': item.product_name,
-          '수량': item.quantity,
-          '단위': item.unit,
-          '단가': item.unit_price,
-          '금액': item.total_price,
-          '이력번호': item.traceability_number || '',
-          '거래총액': transaction.total_amount,
-          '세금': transaction.tax_amount,
-          '비고': transaction.notes || '',
-          '상품비고': item.notes || ''
-        })
+        // 📍 exportTransactionsToCSV 함수의 csvData.push 부분 수정
+            csvData.push({
+              '거래번호': transaction.id,
+              '거래일': transaction.transaction_date,
+              '거래구분': transaction.transaction_type === 'sales' ? '매출' : '매입',
+              '거래처명': transaction.customer_name,
+              '상태': transaction.status === 'confirmed' ? '확정' :
+                      transaction.status === 'draft' ? '임시저장' : '취소',
+              '상품명': item.product_name,
+              '수량': item.quantity,
+              '단위': item.unit,
+              '단가': item.unit_price,
+              '금액': item.total_price,
+              '이력번호': item.traceability_number || '',
+              '원산지': item.origin || '',                // ✅ 추가
+              '도축장': item.slaughterhouse || '',         // ✅ 추가
+              '거래총액': transaction.total_amount,
+              '세금': transaction.tax_amount,
+              '비고': transaction.notes || '',
+              '상품비고': item.notes || ''
+            })
       })
     } else {
       // 상품이 없는 거래는 기본 정보만 내보내기
@@ -294,6 +307,7 @@ export const generateCustomerCSVTemplate = (): string => {
   return Papa.unparse(template, CSV_STRINGIFY_OPTIONS)
 }
 
+// 📍 generateProductCSVTemplate 함수 수정
 export const generateProductCSVTemplate = (): string => {
   const template = [{
     '상품명': '한돈 삼겹살',
@@ -301,6 +315,9 @@ export const generateProductCSVTemplate = (): string => {
     '카테고리': '돼지고기',
     '단위': 'kg',
     '단가': 15000,
+    '이력번호': '250101-001-ABC',    // ✅ 추가
+    '원산지': '국내산(충청)',         // ✅ 추가
+    '도축장': 'OO육가공센터',         // ✅ 추가
     '설명': '신선한 국내산 돼지 삼겹살',
     '활성상태': '활성'
   }]

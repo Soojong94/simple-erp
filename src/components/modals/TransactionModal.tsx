@@ -309,6 +309,11 @@ export default function TransactionModal({
         updatedItems[index].product_name = product.name
         updatedItems[index].unit = product.unit
 
+        // ✅ 원산지/도축장 자동 로딩
+        updatedItems[index].origin = product.origin
+        updatedItems[index].slaughterhouse = product.slaughterhouse
+        console.log(`🌍 원산지/도축장 자동 로딩: ${product.name} - 원산지: ${product.origin || '없음'}, 도축장: ${product.slaughterhouse || '없음'}`)
+
         // 해당 거래처와 해당 상품의 최근 거래 정보 가져오기
         const stats = productUsageStats.get(value)
 

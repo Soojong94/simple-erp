@@ -1,3 +1,6 @@
+// 🥩 ProductModal.tsx 수정 완료 버전
+// 아래 코드를 복사해서 D:\simple-erp\src\components\modals\ProductModal.tsx에 덮어쓰기
+
 import { useState, useEffect } from 'react'
 import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { productAPI, inventoryAPI } from '../../lib/tauri'
@@ -6,7 +9,7 @@ import type { Product } from '../../types'
 interface ProductModalProps {
   isOpen: boolean
   onClose: () => void
-  product?: Product // 수정 시 기존 데이터
+  product?: Product
 }
 
 export default function ProductModal({ isOpen, onClose, product }: ProductModalProps) {
@@ -20,26 +23,24 @@ export default function ProductModal({ isOpen, onClose, product }: ProductModalP
     unit: 'kg',
     unit_price: '',
     description: '',
-    traceability_number: '',  // 🆕 기본 이력번호 추가
+    traceability_number: '',
+    origin: '',  // 🆕 원산지
+    slaughterhouse: '',  // 🆕 도축장
     is_active: true,
-    // 재고 관리 설정 (선택사항)
     use_inventory: false,
     safety_stock: 30,
     location: 'cold' as 'frozen' | 'cold' | 'room'
   })
 
-  // product prop 변경 시 formData 업데이트
   useEffect(() => {
     const loadProductData = async () => {
       if (product) {
-        // 🔧 기존 재고 설정 불러오기 - use_inventory_management 필드 사용
         let inventorySettings = {
-          use_inventory: product.use_inventory_management || false,  // ✅ Product의 설정값 사용
+          use_inventory: product.use_inventory_management || false,
           safety_stock: 30,
           location: 'cold' as 'frozen' | 'cold' | 'room'
         }
-        
-        // 재고 관리를 사용하는 경우에만 재고 데이터 조회
+
         if (product.use_inventory_management) {
           try {
             const inventory = await inventoryAPI.getByProductId(product.id!)
@@ -51,7 +52,7 @@ export default function ProductModal({ isOpen, onClose, product }: ProductModalP
             console.log('재고 설정 없음, 기본값 사용')
           }
         }
-        
+
         setFormData({
           name: product.name || '',
           code: product.code || '',
@@ -59,7 +60,9 @@ export default function ProductModal({ isOpen, onClose, product }: ProductModalP
           unit: product.unit || 'kg',
           unit_price: product.unit_price ? String(product.unit_price) : '',
           description: product.description || '',
-          traceability_number: product.traceability_number || '',  // ✅ 이력번호 로딩
+          traceability_number: product.traceability_number || '',
+          origin: product.origin || '',  // 🆕
+          slaughterhouse: product.slaughterhouse || '',  // 🆕
           is_active: product.is_active ?? true,
           ...inventorySettings
         })
@@ -67,18 +70,15 @@ export default function ProductModal({ isOpen, onClose, product }: ProductModalP
         resetForm()
       }
     }
-    
+
     loadProductData()
   }, [product])
 
   const createMutation = useMutation({
     mutationFn: async (data: any) => {
-      console.log('🆕 상품 생성 데이터:', data)  // ✅ 디버깅 로그
       const newProduct = await productAPI.create(data)
-      console.log('✅ 상품 생성 완료:', newProduct)  // ✅ 결과 확인
-      
-      // 재고 관리 사용 시 자동으로 재고 초기화
-      if (data.use_inventory_management && newProduct.id) {  // ✅ use_inventory → use_inventory_management
+
+      if (data.use_inventory_management && newProduct.id) {
         await inventoryAPI.updateInventory({
           product_id: newProduct.id,
           current_stock: 0,
@@ -86,9 +86,8 @@ export default function ProductModal({ isOpen, onClose, product }: ProductModalP
           location: data.location || 'cold',
           last_updated: new Date().toISOString()
         })
-        console.log(`✅ 재고 관리 초기화 완료 - 상품 #${newProduct.id}`)
       }
-      
+
       return newProduct
     },
     onSuccess: () => {
@@ -106,13 +105,9 @@ export default function ProductModal({ isOpen, onClose, product }: ProductModalP
 
   const updateMutation = useMutation({
     mutationFn: async ({ id, data }: { id: number, data: any }) => {
-      console.log('📦 상품 수정 데이터:', data)  // ✅ 디버깅 로그 추가
       const updatedProduct = await productAPI.update(id, data)
-      console.log('✅ 상품 업데이트 완료:', updatedProduct)  // ✅ 결과 확인
-      
-      // 🔧 재고 관리 설정에 따라 처리
-      if (data.use_inventory_management) {  // ✅ use_inventory → use_inventory_management
-        // 재고 관리 활성화 → 재고 설정 업데이트
+
+      if (data.use_inventory_management) {
         const existingInventory = await inventoryAPI.getByProductId(id).catch(() => null)
         await inventoryAPI.updateInventory({
           product_id: id,
@@ -121,12 +116,8 @@ export default function ProductModal({ isOpen, onClose, product }: ProductModalP
           location: data.location || 'cold',
           last_updated: new Date().toISOString()
         })
-        console.log(`✅ 재고 관리 활성화됨 - 상품 #${id}`)
-      } else {
-        // 재고 관리 비활성화 → 재고 데이터는 유지하되 별도 표시 안함
-        console.log(`ℹ️ 재고 관리 비활성화됨 - 상품 #${id}`)
       }
-      
+
       return updatedProduct
     },
     onSuccess: () => {
@@ -150,9 +141,10 @@ export default function ProductModal({ isOpen, onClose, product }: ProductModalP
       unit: 'kg',
       unit_price: '',
       description: '',
-      traceability_number: '',  // 🆕 기본 이력번호 초기화
+      traceability_number: '',
+      origin: '',  // 🆕
+      slaughterhouse: '',  // 🆕
       is_active: true,
-      // 🔧 명시적으로 false로 초기화
       use_inventory: false,
       safety_stock: 30,
       location: 'cold'
@@ -169,7 +161,7 @@ export default function ProductModal({ isOpen, onClose, product }: ProductModalP
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault()
-    
+
     if (!formData.name.trim()) {
       alert('상품명을 입력해주세요.')
       return
@@ -180,7 +172,6 @@ export default function ProductModal({ isOpen, onClose, product }: ProductModalP
       return
     }
 
-    // 가격이 있으면 숫자로 변환, 없으면 undefined
     const submitData = {
       name: formData.name,
       code: formData.code,
@@ -188,10 +179,11 @@ export default function ProductModal({ isOpen, onClose, product }: ProductModalP
       unit: formData.unit,
       unit_price: formData.unit_price ? Number(formData.unit_price) : undefined,
       description: formData.description,
-      traceability_number: formData.traceability_number,  // ✅ 이력번호 명시적으로 추가
-      use_inventory_management: formData.use_inventory,  // ✅ 재고 관리 사용 여부 저장
+      traceability_number: formData.traceability_number,
+      origin: formData.origin,  // 🆕
+      slaughterhouse: formData.slaughterhouse,  // 🆕
+      use_inventory_management: formData.use_inventory,
       is_active: formData.is_active,
-      // 재고 관리 설정은 별도로 처리 (inventory 테이블)
       safety_stock: formData.safety_stock,
       location: formData.location
     }
@@ -220,10 +212,7 @@ export default function ProductModal({ isOpen, onClose, product }: ProductModalP
           <h3 className="text-lg font-medium text-gray-900">
             {isEditing ? '상품 수정' : '상품 추가'}
           </h3>
-          <button
-            onClick={onClose}
-            className="text-gray-400 hover:text-gray-600"
-          >
+          <button onClick={onClose} className="text-gray-400 hover:text-gray-600">
             <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
             </svg>
@@ -235,11 +224,8 @@ export default function ProductModal({ isOpen, onClose, product }: ProductModalP
           <div className="border-b pb-4">
             <h4 className="text-md font-medium text-gray-900 mb-4">📦 기본 정보</h4>
             <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-              {/* 상품명 */}
               <div>
-                <label className="block text-sm font-medium text-gray-700">
-                  상품명 *
-                </label>
+                <label className="block text-sm font-medium text-gray-700">상품명 *</label>
                 <input
                   type="text"
                   name="name"
@@ -251,11 +237,8 @@ export default function ProductModal({ isOpen, onClose, product }: ProductModalP
                 />
               </div>
 
-              {/* 상품코드 */}
               <div>
-                <label className="block text-sm font-medium text-gray-700">
-                  상품코드
-                </label>
+                <label className="block text-sm font-medium text-gray-700">상품코드</label>
                 <div className="mt-1 flex rounded-md shadow-sm">
                   <input
                     type="text"
@@ -275,11 +258,8 @@ export default function ProductModal({ isOpen, onClose, product }: ProductModalP
                 </div>
               </div>
 
-              {/* 카테고리 */}
               <div>
-                <label className="block text-sm font-medium text-gray-700">
-                  카테고리 *
-                </label>
+                <label className="block text-sm font-medium text-gray-700">카테고리 *</label>
                 <select
                   name="category"
                   value={formData.category}
@@ -296,11 +276,8 @@ export default function ProductModal({ isOpen, onClose, product }: ProductModalP
                 </select>
               </div>
 
-              {/* 단위 */}
               <div>
-                <label className="block text-sm font-medium text-gray-700">
-                  단위 *
-                </label>
+                <label className="block text-sm font-medium text-gray-700">단위 *</label>
                 <select
                   name="unit"
                   value={formData.unit}
@@ -315,7 +292,6 @@ export default function ProductModal({ isOpen, onClose, product }: ProductModalP
                 </select>
               </div>
 
-              {/* 참고가격 */}
               <div className="sm:col-span-2">
                 <label className="block text-sm font-medium text-gray-700">
                   참고가격 ({formData.unit}당)
@@ -337,11 +313,8 @@ export default function ProductModal({ isOpen, onClose, product }: ProductModalP
               </div>
             </div>
 
-            {/* 설명 */}
             <div className="mt-4">
-              <label className="block text-sm font-medium text-gray-700">
-                상품 설명
-              </label>
+              <label className="block text-sm font-medium text-gray-700">상품 설명</label>
               <textarea
                 name="description"
                 value={formData.description}
@@ -352,7 +325,6 @@ export default function ProductModal({ isOpen, onClose, product }: ProductModalP
               />
             </div>
 
-            {/* 🆕 기본 이력번호 */}
             <div className="mt-4">
               <label className="block text-sm font-medium text-gray-700">
                 기본 이력번호
@@ -370,9 +342,46 @@ export default function ProductModal({ isOpen, onClose, product }: ProductModalP
                 거래나 재고 입고 시 자동으로 채워집니다. 수동 변경 가능합니다.
               </p>
             </div>
+
+            {/* 🆕 축산물 정보 (선택사항) */}
+            <div className="mt-4 border-t pt-4">
+              <h5 className="text-sm font-medium text-gray-900 mb-3">
+                🥩 축산물 정보 <span className="text-gray-500 font-normal">(선택사항)</span>
+              </h5>
+
+              <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700">원산지</label>
+                  <input
+                    type="text"
+                    name="origin"
+                    value={formData.origin}
+                    onChange={handleChange}
+                    className="mt-1 block w-full border border-gray-300 rounded-md px-3 py-2 shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
+                    placeholder="예: 국내산, 미국산, 호주산"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-700">도축장</label>
+                  <input
+                    type="text"
+                    name="slaughterhouse"
+                    value={formData.slaughterhouse}
+                    onChange={handleChange}
+                    className="mt-1 block w-full border border-gray-300 rounded-md px-3 py-2 shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
+                    placeholder="예: 충남축협 도축장"
+                  />
+                </div>
+              </div>
+
+              <p className="text-xs text-gray-500 mt-2">
+                거래나 재고 입고 시 자동으로 채워집니다. 거래별로 수동 변경 가능합니다.
+              </p>
+            </div>
           </div>
 
-          {/* 재고 관리 설정 (선택사항) */}
+          {/* 재고 관리 설정 */}
           <div className="border-b pb-4">
             <div className="flex items-center justify-between mb-4">
               <h4 className="text-md font-medium text-gray-900">📊 재고 관리 설정</h4>
@@ -395,7 +404,6 @@ export default function ProductModal({ isOpen, onClose, product }: ProductModalP
                 </p>
 
                 <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-                  {/* 안전 재고 */}
                   <div>
                     <label className="block text-sm font-medium text-gray-700">
                       안전 재고 ({formData.unit})
@@ -414,11 +422,8 @@ export default function ProductModal({ isOpen, onClose, product }: ProductModalP
                     </p>
                   </div>
 
-                  {/* 보관 위치 */}
                   <div>
-                    <label className="block text-sm font-medium text-gray-700">
-                      보관 위치
-                    </label>
+                    <label className="block text-sm font-medium text-gray-700">보관 위치</label>
                     <select
                       name="location"
                       value={formData.location}
@@ -471,8 +476,8 @@ export default function ProductModal({ isOpen, onClose, product }: ProductModalP
               disabled={createMutation.isPending || updateMutation.isPending}
               className="px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 disabled:opacity-50"
             >
-              {createMutation.isPending || updateMutation.isPending ? 
-                (isEditing ? '수정 중...' : '추가 중...') : 
+              {createMutation.isPending || updateMutation.isPending ?
+                (isEditing ? '수정 중...' : '추가 중...') :
                 (isEditing ? '수정' : '추가')
               }
             </button>

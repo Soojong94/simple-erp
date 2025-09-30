@@ -77,6 +77,8 @@ export interface Product {
   unit_price?: number  // 선택사항으로 변경 (거래처별로 다르니까)
   description?: string
   traceability_number?: string  // 🆕 기본 이력번호 추가
+  origin?: string  // 🆕 원산지 (선택사항)
+  slaughterhouse?: string  // 🆕 도축장 (선택사항)
   use_inventory_management?: boolean  // ✅ 재고 관리 사용 여부 추가
   is_active: boolean
   created_at?: string
@@ -111,6 +113,8 @@ export interface TransactionItem {
   unit_price: number // kg당 가격
   total_price: number // quantity * unit_price
   traceability_number?: string  // 이력번호 - 새로 추가!
+  origin?: string  // 🆕 원산지 (선택사항)
+  slaughterhouse?: string  // 🆕 도축장 (선택사항)
   notes?: string
 }
 
@@ -242,6 +246,8 @@ export interface StockMovement {
   lot_number?: string             // 로트번호
   expiry_date?: string            // 유통기한
   traceability_number?: string   // 이력번호
+  origin?: string                 // 🆕 원산지 (선택사항)
+  slaughterhouse?: string         // 🆕 도축장 (선택사항)
   transaction_id?: number         // 연결된 거래 ID
   reference_type?: 'purchase' | 'sales' | 'manual' | 'adjustment'
   reference_id?: number           // 참조 ID
@@ -260,6 +266,8 @@ export interface StockLot {
   remaining_quantity: number      // 남은 수량
   expiry_date: string            // 유통기한
   traceability_number?: string   // 이력번호
+  origin?: string                 // 🆕 원산지 (선택사항)
+  slaughterhouse?: string         // 🆕 도축장 (선택사항)
   supplier_id?: number           // 공급업체 ID
   supplier_name?: string         // 공급업체명
   status: 'active' | 'expired' | 'finished' | 'cancelled'  // 활성/만료/소진/취소

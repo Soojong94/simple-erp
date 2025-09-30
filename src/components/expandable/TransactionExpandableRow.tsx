@@ -151,6 +151,18 @@ export default function TransactionExpandableRow({
                                   <span>{item.traceability_number}</span>
                                 </div>
                               )}
+                              {item.origin && (
+                                <div className="flex justify-between text-gray-500 text-xs">
+                                  <span>🌍 원산지:</span>
+                                  <span className="font-medium">{item.origin}</span>
+                                </div>
+                              )}
+                              {item.slaughterhouse && (
+                                <div className="flex justify-between text-gray-500 text-xs">
+                                  <span>🏭 도축장:</span>
+                                  <span className="font-medium">{item.slaughterhouse}</span>
+                                </div>
+                              )}
                               {item.notes && (
                                 <div className="text-gray-500 text-xs">
                                   메모: {item.notes}

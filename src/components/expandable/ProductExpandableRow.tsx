@@ -144,6 +144,17 @@ export default function ProductExpandableRow({
                       label="참고 단가" 
                       value={product.unit_price ? formatCurrency(product.unit_price) : '-'} 
                     />
+                    <InfoItem label="이력번호" value={product.traceability_number || '-'} />
+                    <InfoItem 
+                      label="🌍 원산지" 
+                      value={product.origin || '-'} 
+                      className={product.origin ? "text-blue-600 font-medium" : ""}
+                    />
+                    <InfoItem 
+                      label="🏭 도축장" 
+                      value={product.slaughterhouse || '-'} 
+                      className={product.slaughterhouse ? "text-purple-600 font-medium" : ""}
+                    />
                     <InfoItem label="설명" value={product.description || '-'} />
                     <InfoItem 
                       label="상태" 
