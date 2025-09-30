@@ -80,6 +80,14 @@ export default function StockMovementModal({ isOpen, onClose, product }: StockMo
         const activeLots = await inventoryAPI.getActiveLots(data.product_id!)
         let remainingQty = data.quantity!
         
+        // 🎯 현재 재고 확인
+        const inventory = await inventoryAPI.getByProductId(data.product_id!)
+        
+        if (inventory.current_stock < data.quantity!) {
+          throw new Error(`재고가 부족합니다. 현재 재고: ${inventory.current_stock}kg, 요청: ${data.quantity}kg`)
+        }
+        
+        // 로트에서 차감 시도
         for (const lot of activeLots) {
           if (remainingQty <= 0) break
           
@@ -100,8 +108,16 @@ export default function StockMovementModal({ isOpen, onClose, product }: StockMo
           remainingQty -= deductQty
         }
         
+        // 🎯 로트가 부족하면 나머지를 일반 출고로 처리 (로트 없이)
         if (remainingQty > 0) {
-          throw new Error(`재고가 부족합니다. 부족량: ${remainingQty}kg`)
+          console.warn(`⚠️ 로트 부족 - 나머지 ${remainingQty}kg를 일반 출고로 처리합니다.`)
+          
+          await inventoryAPI.createMovement({
+            ...data,
+            quantity: remainingQty,
+            lot_number: undefined,
+            notes: `${data.notes || ''} (로트 불명 출고)`.trim()
+          } as Omit<StockMovement, 'id' | 'created_at'>)
         }
       } else {
         // 재고 조정

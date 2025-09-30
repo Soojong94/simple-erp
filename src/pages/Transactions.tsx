@@ -74,6 +74,9 @@ export default function Transactions() {
     mutationFn: transactionAPI.delete,
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['transactions'] })
+      queryClient.invalidateQueries({ queryKey: ['customers'] })  // 🆕 미수금 UI 업데이트
+      queryClient.invalidateQueries({ queryKey: ['inventory'] })
+      queryClient.invalidateQueries({ queryKey: ['inventory-stats'] })
       alert('거래가 삭제되었습니다.')
     }
   })

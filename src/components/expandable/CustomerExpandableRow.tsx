@@ -162,6 +162,21 @@ export default function CustomerExpandableRow({
 
                   {/* 거래 통계 */}
                   <CardSection title="거래 통계" icon="📈">
+                    {/* 🆕 미수금 섹션 (고객일 때만) */}
+                    {customer.type === 'customer' && (
+                      <div className="bg-gradient-to-r from-blue-50 to-indigo-50 p-4 rounded-lg border-2 border-blue-300 mb-4">
+                        <div className="text-sm text-gray-600 mb-1">💰 현재 미수금</div>
+                        <div className="text-3xl font-bold text-blue-700">
+                          {formatCurrency(customer.outstanding_balance || 0)}
+                        </div>
+                        <div className="text-xs text-gray-500 mt-2">
+                          {(customer.outstanding_balance || 0) > 0 
+                            ? '⚠️ 수금이 필요합니다' 
+                            : '✅ 미수금이 없습니다'}
+                        </div>
+                      </div>
+                    )}
+                    
                     <InfoItem 
                       label="총 거래 건수" 
                       value={`${totalTransactions}건`} 

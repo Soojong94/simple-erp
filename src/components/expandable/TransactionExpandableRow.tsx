@@ -30,7 +30,13 @@ export default function TransactionExpandableRow({
     <>
       {/* 기본 테이블 행 */}
       <tr 
-        className="hover:bg-gray-50 cursor-pointer transition-colors duration-150"
+        className={`hover:opacity-90 cursor-pointer transition-all duration-150 ${
+          transaction.transaction_type === 'sales' 
+            ? 'bg-green-50'  // 🌿 매출: 연한 초록
+            : transaction.transaction_type === 'purchase'
+            ? 'bg-blue-50'   // 📦 매입: 연한 파란
+            : 'bg-amber-50'  // 💵 수금: 연한 황금
+        }`}
         onClick={onToggle}
       >
         <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
