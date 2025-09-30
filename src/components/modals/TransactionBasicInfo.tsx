@@ -36,7 +36,7 @@ export default function TransactionBasicInfo({
           className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-blue-500 focus:border-blue-500"
         >
           <option value={0}>거래처를 선택하세요</option>
-          {customers?.map(customer => (
+          {customers?.filter(c => c.is_active).map(customer => (
             <option key={customer.id} value={customer.id}>
               {customer.type === 'customer' ? '🛒' : '🏭'} {customer.name}
             </option>

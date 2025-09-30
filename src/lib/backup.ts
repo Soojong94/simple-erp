@@ -433,24 +433,65 @@ export const importBackup = async (file: File): Promise<{ success: boolean; erro
 }
 
 /**
- * localStorage에 백업 데이터 복원 (기존과 동일)
+ * 스키마 마이그레이션: 이전 버전 데이터를 현재 버전에 맞게 변환
+ */
+const migrateBackupData = (backupData: BackupData): BackupData => {
+  console.log('🔄 스키마 마이그레이션 시작...')
+  
+  // 거래처 마이그레이션
+  const migratedCustomers = backupData.customers.map(customer => ({
+    ...customer,
+    outstanding_balance: customer.outstanding_balance ?? 0,  // 누락된 필드 기본값
+    updated_at: customer.updated_at ?? customer.created_at ?? new Date().toISOString()
+  }))
+  
+  // 상품 마이그레이션
+  const migratedProducts = backupData.products.map(product => ({
+    ...product,
+    updated_at: product.updated_at ?? product.created_at ?? new Date().toISOString()
+  }))
+  
+  // 거래 마이그레이션
+  const migratedTransactions = backupData.transactions.map(transaction => ({
+    ...transaction,
+    transaction_type: transaction.transaction_type || 'sales',  // 기본값
+    reference_payment_id: transaction.reference_payment_id ?? undefined,
+    is_displayed_in_invoice: transaction.is_displayed_in_invoice ?? false,
+    displayed_in_transaction_id: transaction.displayed_in_transaction_id ?? undefined
+  }))
+  
+  console.log('✅ 마이그레이션 완료')
+  
+  return {
+    ...backupData,
+    customers: migratedCustomers,
+    products: migratedProducts,
+    transactions: migratedTransactions
+  }
+}
+
+/**
+ * localStorage에 백업 데이터 복원 (마이그레이션 추가)
  */
 export const restoreBackupData = (backupData: BackupData): void => {
   try {
-    setToStorage(STORAGE_KEYS.CUSTOMERS, backupData.customers)
-    setToStorage(STORAGE_KEYS.PRODUCTS, backupData.products)
-    setToStorage(STORAGE_KEYS.TRANSACTIONS, backupData.transactions)
-    setToStorage(STORAGE_KEYS.CUSTOMER_PRODUCT_PRICES, backupData.customerProductPrices)
-    setToStorage(STORAGE_KEYS.COMPANY, backupData.company)
-    setToStorage(STORAGE_KEYS.NEXT_IDS, backupData.nextIds)
+    // 스키마 마이그레이션 먼저 수행
+    const migratedData = migrateBackupData(backupData)
+    
+    setToStorage(STORAGE_KEYS.CUSTOMERS, migratedData.customers)
+    setToStorage(STORAGE_KEYS.PRODUCTS, migratedData.products)
+    setToStorage(STORAGE_KEYS.TRANSACTIONS, migratedData.transactions)
+    setToStorage(STORAGE_KEYS.CUSTOMER_PRODUCT_PRICES, migratedData.customerProductPrices)
+    setToStorage(STORAGE_KEYS.COMPANY, migratedData.company)
+    setToStorage(STORAGE_KEYS.NEXT_IDS, migratedData.nextIds)
 
     console.log('✅ 백업 데이터 복원 완료:', {
-      customers: backupData.customers.length,
-      products: backupData.products.length,
-      transactions: backupData.transactions.length,
-      customerProductPrices: backupData.customerProductPrices.length,
-      company: backupData.company ? 1 : 0,
-      backupDate: backupData.metadata.backupDate
+      customers: migratedData.customers.length,
+      products: migratedData.products.length,
+      transactions: migratedData.transactions.length,
+      customerProductPrices: migratedData.customerProductPrices.length,
+      company: migratedData.company ? 1 : 0,
+      backupDate: migratedData.metadata.backupDate
     })
   } catch (error) {
     console.error('데이터 복원 실패:', error)

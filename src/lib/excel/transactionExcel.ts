@@ -194,7 +194,85 @@ export function generateTransactionExcel(
     headers: ['거래처명', '매출건수', '매출금액', '매입건수', '매입금액', '순이익']
   }
   
-  // 6. 시트 5: 상품별 집계
+  // 6. 시트 5: 수금 내역 (payment 타입)
+  const paymentTransactions = transactions.filter(t => t.transaction_type === 'payment')
+  const paymentData = paymentTransactions
+    .sort((a, b) => {
+      const timeA = new Date(a.created_at || a.transaction_date).getTime()
+      const timeB = new Date(b.created_at || b.transaction_date).getTime()
+      return timeA - timeB
+    })
+    .map(t => ({
+      거래번호: t.id,
+      입금일: t.transaction_date,
+      등록일시: t.created_at ? new Date(t.created_at).toLocaleString('ko-KR', { 
+        year: 'numeric', 
+        month: '2-digit', 
+        day: '2-digit', 
+        hour: '2-digit', 
+        minute: '2-digit',
+        hour12: false 
+      }).replace(/\. /g, '-').replace('.', '') : '-',
+      거래처: t.customer_name,
+      입금금액: t.total_amount,
+      거래증표시여부: t.is_displayed_in_invoice ? '표시됨' : '미표시',
+      표시거래번호: t.displayed_in_transaction_id || '-',
+      메모: t.notes || '-'
+    }))
+  
+  const paymentSheet: SheetData = {
+    name: '수금 내역',
+    data: paymentData,
+    headers: ['거래번호', '입금일', '등록일시', '거래처', '입금금액', '거래증표시여부', '표시거래번호', '메모']
+  }
+  
+  // 7. 시트 6: 거래처별 미수금 현황
+  const customersData: any[] = []
+  
+  // 거래처별로 미수금 계산
+  const outstandingMap = new Map<string, {
+    name: string
+    totalSales: number      // 총 매출
+    totalPayment: number    // 총 수금
+    outstanding: number     // 미수금 = 매출 - 수금
+  }>()
+  
+  transactions.forEach(t => {
+    const existing = outstandingMap.get(t.customer_name) || { 
+      name: t.customer_name, 
+      totalSales: 0, 
+      totalPayment: 0,
+      outstanding: 0
+    }
+    
+    if (t.transaction_type === 'sales') {
+      existing.totalSales += t.total_amount
+    } else if (t.transaction_type === 'payment') {
+      existing.totalPayment += t.total_amount
+    }
+    
+    existing.outstanding = existing.totalSales - existing.totalPayment
+    outstandingMap.set(t.customer_name, existing)
+  })
+  
+  const outstandingData = Array.from(outstandingMap.values())
+    .filter(c => c.totalSales > 0)  // 매출이 있는 것만
+    .map(c => ({
+      거래처명: c.name,
+      총매출: c.totalSales,
+      총수금: c.totalPayment,
+      미수금: c.outstanding,
+      수금률: c.totalSales > 0 ? `${((c.totalPayment / c.totalSales) * 100).toFixed(1)}%` : '0%'
+    }))
+    .sort((a, b) => b.미수금 - a.미수금)  // 미수금 높은 순
+  
+  const outstandingSheet: SheetData = {
+    name: '미수금 현황',
+    data: outstandingData,
+    headers: ['거래처명', '총매출', '총수금', '미수금', '수금률']
+  }
+  
+  // 8. 시트 7: 상품별 집계
   const productMap = new Map<string, { 
     name: string
     count: number
@@ -247,9 +325,9 @@ export function generateTransactionExcel(
   const today = new Date().toISOString().split('T')[0]
   filename += `_${today}.xlsx`
   
-  // 7. Excel 생성
+  // 9. Excel 생성 (수금 및 미수금 시트 추가)
   generateExcel(
-    [summarySheet, transactionSummarySheet, detailsSheet, customerSheet, productSheet],
+    [summarySheet, transactionSummarySheet, detailsSheet, paymentSheet, outstandingSheet, customerSheet, productSheet],
     filename
   )
 }

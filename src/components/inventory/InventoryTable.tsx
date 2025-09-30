@@ -220,11 +220,11 @@ export default function InventoryTable({ onStockMovement }: InventoryTableProps)
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap text-center">
                         <span className={cn("font-medium", status.color)}>
-                          {formatNumber(item.current_stock)} kg
+                          {formatNumber(item.current_stock)} {item.unit}
                         </span>
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap text-center">
-                        {formatNumber(item.safety_stock)} kg
+                        {formatNumber(item.safety_stock)} {item.unit}
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap text-center">
                         <span className="text-sm">
@@ -289,7 +289,7 @@ export default function InventoryTable({ onStockMovement }: InventoryTableProps)
                                           </span>
                                         </td>
                                         <td className="px-3 py-2 whitespace-nowrap text-xs text-right font-medium">
-                                          {movement.movement_type === 'out' ? '-' : '+'}{formatNumber(movement.quantity)} kg
+                                          {movement.movement_type === 'out' ? '-' : '+'}{formatNumber(movement.quantity)} {item.unit}
                                         </td>
                                         <td className="px-3 py-2 whitespace-nowrap text-xs text-gray-600">
                                           {movement.lot_number || '-'}

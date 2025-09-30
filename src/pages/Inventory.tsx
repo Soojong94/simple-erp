@@ -1,7 +1,6 @@
 import { useState, useEffect } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { productAPI, inventoryAPI, transactionAPI } from '../lib/tauri'
-import InventoryOverview from '../components/inventory/InventoryOverview'
 import InventoryTable from '../components/inventory/InventoryTable'
 import StockMovementModal from '../components/inventory/StockMovementModal'
 import ExpiryAlertCard from '../components/inventory/ExpiryAlertCard'
@@ -101,11 +100,6 @@ export default function Inventory() {
         <p className="text-sm text-gray-500 mt-2 md:mt-0">
           현재 시간: {new Date().toLocaleString('ko-KR')}
         </p>
-      </div>
-      
-      {/* 재고 통계 대시보드 */}
-      <div className="mb-8">
-        <InventoryOverview />
       </div>
       
       {/* 유통기한 알림 + 재고 현황 */}
