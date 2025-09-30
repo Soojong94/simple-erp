@@ -76,6 +76,8 @@ export interface Product {
   unit: string
   unit_price?: number  // 선택사항으로 변경 (거래처별로 다르니까)
   description?: string
+  traceability_number?: string  // 🆕 기본 이력번호 추가
+  use_inventory_management?: boolean  // ✅ 재고 관리 사용 여부 추가
   is_active: boolean
   created_at?: string
   updated_at?: string  // 🆕 추가

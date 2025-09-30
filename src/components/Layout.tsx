@@ -44,7 +44,7 @@ export default function Layout({ children }: LayoutProps) {
       <div className="fixed inset-y-0 left-0 z-50 w-64 bg-white shadow-lg">
         <div className="flex h-16 shrink-0 items-center px-6 border-b border-gray-200">
           <h1 className="text-xl font-semibold text-gray-900">
-            <span className="text-2xl mr-2">🥩</span>
+            <span className="text-2xl mr-2">📦</span>
             Simple ERP
           </h1>
         </div>
@@ -111,7 +111,7 @@ export default function Layout({ children }: LayoutProps) {
             <div className="flex flex-1"></div>
             <div className="flex items-center gap-x-4 lg:gap-x-6">
               <div className="text-sm text-gray-700">
-                중소기업용 무료 ERP 시스템
+                made by soojong94
               </div>
             </div>
           </div>

@@ -266,6 +266,7 @@ export default function InventoryTable({ onStockMovement }: InventoryTableProps)
                                       <th className="px-3 py-2 text-left text-xs font-medium text-gray-500">구분</th>
                                       <th className="px-3 py-2 text-right text-xs font-medium text-gray-500">수량</th>
                                       <th className="px-3 py-2 text-left text-xs font-medium text-gray-500">로트</th>
+                                      <th className="px-3 py-2 text-left text-xs font-medium text-gray-500">이력번호</th>
                                       <th className="px-3 py-2 text-left text-xs font-medium text-gray-500">비고</th>
                                     </tr>
                                   </thead>
@@ -293,6 +294,9 @@ export default function InventoryTable({ onStockMovement }: InventoryTableProps)
                                         </td>
                                         <td className="px-3 py-2 whitespace-nowrap text-xs text-gray-600">
                                           {movement.lot_number || '-'}
+                                        </td>
+                                        <td className="px-3 py-2 whitespace-nowrap text-xs text-gray-600">
+                                          {movement.traceability_number || '-'}
                                         </td>
                                         <td className="px-3 py-2 text-xs text-gray-600">
                                           {movement.notes || '-'}

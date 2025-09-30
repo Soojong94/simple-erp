@@ -23,7 +23,10 @@ export default function TransactionExpandableRow({
 }: TransactionExpandableRowProps) {
   
   const getTransactionTypeDisplay = (type: string) => {
-    return type === 'sales' ? '💰 매출' : '📦 매입'
+    if (type === 'sales') return '💰 매출'
+    if (type === 'purchase') return '📦 매입'
+    if (type === 'payment') return '💵 수금'
+    return '❓ 기타'
   }
 
   return (
@@ -54,7 +57,9 @@ export default function TransactionExpandableRow({
           <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
             transaction.transaction_type === 'sales' 
               ? 'bg-green-100 text-green-800' 
-              : 'bg-blue-100 text-blue-800'
+              : transaction.transaction_type === 'purchase'
+              ? 'bg-blue-100 text-blue-800'
+              : 'bg-amber-100 text-amber-800'
           }`}>
             {getTransactionTypeDisplay(transaction.transaction_type)}
           </span>

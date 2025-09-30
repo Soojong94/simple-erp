@@ -130,7 +130,7 @@ export default function TransactionModal({
   const productUsageStats = useMemo(() => {
     if (!formData.customer_id || !allTransactions) return new Map()
 
-    const stats = new Map<number, { count: number, lastUsed: string, lastQuantity: number, lastUnitPrice: number, lastTraceability: string }>()
+    const stats = new Map<number, { count: number, lastUsed: string, lastQuantity: number, lastUnitPrice: number, lastTraceability: string, lastTransactionId: number }>()
 
     // 해당 거래처의 거래만 필터링
     const customerTransactions = allTransactions.filter(
@@ -139,18 +139,36 @@ export default function TransactionModal({
 
     customerTransactions.forEach(transaction => {
       transaction.items?.forEach(item => {
-        const current = stats.get(item.product_id) || { count: 0, lastUsed: '', lastQuantity: 1, lastUnitPrice: 0, lastTraceability: '' }
+        const current = stats.get(item.product_id) || { 
+          count: 0, 
+          lastUsed: '', 
+          lastQuantity: 1, 
+          lastUnitPrice: 0, 
+          lastTraceability: '', 
+          lastTransactionId: 0 
+        }
 
-        // 최근 거래일이면 수량 + 단가 + 이력번호도 업데이트
-        const isMoreRecent = transaction.transaction_date > current.lastUsed
+        // ✅ 최근 거래일이면 수량 + 단가 + 이력번호도 업데이트
+        // 날짜가 같으면 거래 ID로 비교 (더 최근 = ID가 큰 것)
+        const isMoreRecent = transaction.transaction_date > current.lastUsed || 
+          (transaction.transaction_date === current.lastUsed && (transaction.id || 0) > current.lastTransactionId)
 
-        stats.set(item.product_id, {
-          count: current.count + 1,
-          lastUsed: isMoreRecent ? transaction.transaction_date : current.lastUsed,
-          lastQuantity: isMoreRecent ? item.quantity : current.lastQuantity,
-          lastUnitPrice: isMoreRecent ? item.unit_price : current.lastUnitPrice,  // 🎯 단가 추가!
-          lastTraceability: isMoreRecent ? (item.traceability_number || '') : current.lastTraceability
-        })
+        if (isMoreRecent) {
+          stats.set(item.product_id, {
+            count: current.count + 1,
+            lastUsed: transaction.transaction_date,
+            lastQuantity: item.quantity,
+            lastUnitPrice: item.unit_price,
+            lastTraceability: item.traceability_number || '',
+            lastTransactionId: transaction.id || 0
+          })
+        } else {
+          // 거래 횟수만 증가
+          stats.set(item.product_id, {
+            ...current,
+            count: current.count + 1
+          })
+        }
       })
     })
 
@@ -310,10 +328,15 @@ export default function TransactionModal({
           updatedItems[index].quantity = stats.lastQuantity
         }
 
-        // 🎯 최근 이력번호 자동 입력
+        // 🎯 이력번호 자동 입력 (우선순위: 최근 거래 > 상품 기본값)
         if (stats && stats.lastTraceability) {
-          console.log(`🔢 최근 이력번호 자동 로딩: ${product.name} = ${stats.lastTraceability}`)
+          // 1순위: 최근 거래 이력번호
+          console.log(`📝 최근 거래 이력번호 로딩: ${product.name} = ${stats.lastTraceability}`)
           updatedItems[index].traceability_number = stats.lastTraceability
+        } else if (product.traceability_number) {
+          // 2순위: 상품 기본 이력번호
+          console.log(`🏷️ 상품 기본 이력번호 로딩: ${product.name} = ${product.traceability_number}`)
+          updatedItems[index].traceability_number = product.traceability_number
         }
 
         // 총액 자동 계산

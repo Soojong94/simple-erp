@@ -39,7 +39,8 @@ export default function StockMovementModal({ isOpen, onClose, product }: StockMo
         const randomCode = Math.random().toString(36).substr(2, 4).toUpperCase()
         setFormData(prev => ({
           ...prev,
-          lot_number: `LOT-${today}-${product.id}-${randomCode}`
+          lot_number: `LOT-${today}-${product.id}-${randomCode}`,
+          traceability_number: product.traceability_number || ''  // ✅ 상품의 기본 이력번호 자동 채우기
         }))
       }
     }
@@ -152,7 +153,7 @@ export default function StockMovementModal({ isOpen, onClose, product }: StockMo
     }
 
     if (activeTab === 'out' && formData.quantity > product.current_stock) {
-      alert(`재고가 부족합니다. 현재 재고: ${product.current_stock}kg`)
+      alert(`재고가 부족합니다. 현재 재고: ${product.current_stock}${product.unit}`)
       return
     }
 
@@ -198,11 +199,11 @@ export default function StockMovementModal({ isOpen, onClose, product }: StockMo
                     </div>
                     <div>
                       <p className="text-sm text-gray-500">현재 재고</p>
-                      <p className="font-medium text-blue-600">{formatNumber(product.current_stock)} kg</p>
+                      <p className="font-medium text-blue-600">{formatNumber(product.current_stock)} {product.unit}</p>
                     </div>
                     <div>
                       <p className="text-sm text-gray-500">안전 재고</p>
-                      <p className="font-medium">{formatNumber(product.safety_stock)} kg</p>
+                      <p className="font-medium">{formatNumber(product.safety_stock)} {product.unit}</p>
                     </div>
                     <div>
                       <p className="text-sm text-gray-500">카테고리</p>
@@ -254,7 +255,7 @@ export default function StockMovementModal({ isOpen, onClose, product }: StockMo
                 <div className="mt-6 grid grid-cols-2 gap-4">
                   <div className="col-span-2 sm:col-span-1">
                     <label className="block text-sm font-medium text-gray-700">
-                      수량 (kg) <span className="text-red-500">*</span>
+                      수량 ({product.unit}) <span className="text-red-500">*</span>
                     </label>
                     <input
                       type="number"

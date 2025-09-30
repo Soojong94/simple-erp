@@ -20,6 +20,7 @@ export default function ProductModal({ isOpen, onClose, product }: ProductModalP
     unit: 'kg',
     unit_price: '',
     description: '',
+    traceability_number: '',  // 🆕 기본 이력번호 추가
     is_active: true,
     // 재고 관리 설정 (선택사항)
     use_inventory: false,
@@ -31,25 +32,24 @@ export default function ProductModal({ isOpen, onClose, product }: ProductModalP
   useEffect(() => {
     const loadProductData = async () => {
       if (product) {
-        // 🔧 기존 재고 설정 불러오기
+        // 🔧 기존 재고 설정 불러오기 - use_inventory_management 필드 사용
         let inventorySettings = {
-          use_inventory: false,
+          use_inventory: product.use_inventory_management || false,  // ✅ Product의 설정값 사용
           safety_stock: 30,
           location: 'cold' as 'frozen' | 'cold' | 'room'
         }
         
-        try {
-          const inventory = await inventoryAPI.getByProductId(product.id!)
-          if (inventory && inventory.id) {
-            inventorySettings = {
-              use_inventory: true,
-              safety_stock: inventory.safety_stock || 30,
-              location: inventory.location || 'cold'
+        // 재고 관리를 사용하는 경우에만 재고 데이터 조회
+        if (product.use_inventory_management) {
+          try {
+            const inventory = await inventoryAPI.getByProductId(product.id!)
+            if (inventory && inventory.id) {
+              inventorySettings.safety_stock = inventory.safety_stock || 30
+              inventorySettings.location = inventory.location || 'cold'
             }
+          } catch (error) {
+            console.log('재고 설정 없음, 기본값 사용')
           }
-        } catch (error) {
-          // 재고 설정이 없으면 기본값 사용
-          console.log('재고 설정 없음, 기본값 사용')
         }
         
         setFormData({
@@ -59,6 +59,7 @@ export default function ProductModal({ isOpen, onClose, product }: ProductModalP
           unit: product.unit || 'kg',
           unit_price: product.unit_price ? String(product.unit_price) : '',
           description: product.description || '',
+          traceability_number: product.traceability_number || '',  // ✅ 이력번호 로딩
           is_active: product.is_active ?? true,
           ...inventorySettings
         })
@@ -72,10 +73,12 @@ export default function ProductModal({ isOpen, onClose, product }: ProductModalP
 
   const createMutation = useMutation({
     mutationFn: async (data: any) => {
+      console.log('🆕 상품 생성 데이터:', data)  // ✅ 디버깅 로그
       const newProduct = await productAPI.create(data)
+      console.log('✅ 상품 생성 완료:', newProduct)  // ✅ 결과 확인
       
       // 재고 관리 사용 시 자동으로 재고 초기화
-      if (data.use_inventory && newProduct.id) {
+      if (data.use_inventory_management && newProduct.id) {  // ✅ use_inventory → use_inventory_management
         await inventoryAPI.updateInventory({
           product_id: newProduct.id,
           current_stock: 0,
@@ -83,6 +86,7 @@ export default function ProductModal({ isOpen, onClose, product }: ProductModalP
           location: data.location || 'cold',
           last_updated: new Date().toISOString()
         })
+        console.log(`✅ 재고 관리 초기화 완료 - 상품 #${newProduct.id}`)
       }
       
       return newProduct
@@ -102,10 +106,12 @@ export default function ProductModal({ isOpen, onClose, product }: ProductModalP
 
   const updateMutation = useMutation({
     mutationFn: async ({ id, data }: { id: number, data: any }) => {
+      console.log('📦 상품 수정 데이터:', data)  // ✅ 디버깅 로그 추가
       const updatedProduct = await productAPI.update(id, data)
+      console.log('✅ 상품 업데이트 완료:', updatedProduct)  // ✅ 결과 확인
       
       // 🔧 재고 관리 설정에 따라 처리
-      if (data.use_inventory) {
+      if (data.use_inventory_management) {  // ✅ use_inventory → use_inventory_management
         // 재고 관리 활성화 → 재고 설정 업데이트
         const existingInventory = await inventoryAPI.getByProductId(id).catch(() => null)
         await inventoryAPI.updateInventory({
@@ -144,6 +150,7 @@ export default function ProductModal({ isOpen, onClose, product }: ProductModalP
       unit: 'kg',
       unit_price: '',
       description: '',
+      traceability_number: '',  // 🆕 기본 이력번호 초기화
       is_active: true,
       // 🔧 명시적으로 false로 초기화
       use_inventory: false,
@@ -175,8 +182,18 @@ export default function ProductModal({ isOpen, onClose, product }: ProductModalP
 
     // 가격이 있으면 숫자로 변환, 없으면 undefined
     const submitData = {
-      ...formData,
-      unit_price: formData.unit_price ? Number(formData.unit_price) : undefined
+      name: formData.name,
+      code: formData.code,
+      category: formData.category,
+      unit: formData.unit,
+      unit_price: formData.unit_price ? Number(formData.unit_price) : undefined,
+      description: formData.description,
+      traceability_number: formData.traceability_number,  // ✅ 이력번호 명시적으로 추가
+      use_inventory_management: formData.use_inventory,  // ✅ 재고 관리 사용 여부 저장
+      is_active: formData.is_active,
+      // 재고 관리 설정은 별도로 처리 (inventory 테이블)
+      safety_stock: formData.safety_stock,
+      location: formData.location
     }
 
     if (isEditing && product) {
@@ -333,6 +350,25 @@ export default function ProductModal({ isOpen, onClose, product }: ProductModalP
                 className="mt-1 block w-full border border-gray-300 rounded-md px-3 py-2 shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
                 placeholder="국내산 돼지 목살 (등급: 1+)"
               />
+            </div>
+
+            {/* 🆕 기본 이력번호 */}
+            <div className="mt-4">
+              <label className="block text-sm font-medium text-gray-700">
+                기본 이력번호
+                <span className="text-gray-500 text-xs ml-1">(선택사항)</span>
+              </label>
+              <input
+                type="text"
+                name="traceability_number"
+                value={formData.traceability_number}
+                onChange={handleChange}
+                className="mt-1 block w-full border border-gray-300 rounded-md px-3 py-2 shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
+                placeholder="250101-001-123"
+              />
+              <p className="text-xs text-gray-500 mt-1">
+                거래나 재고 입고 시 자동으로 채워집니다. 수동 변경 가능합니다.
+              </p>
             </div>
           </div>
 
