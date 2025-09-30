@@ -57,7 +57,7 @@ export default function ProductModal({ isOpen, onClose, product }: ProductModalP
           code: product.code || '',
           category: product.category || '',
           unit: product.unit || 'kg',
-          unit_price: product.unit_price || '',
+          unit_price: product.unit_price ? String(product.unit_price) : '',
           description: product.description || '',
           is_active: product.is_active ?? true,
           ...inventorySettings

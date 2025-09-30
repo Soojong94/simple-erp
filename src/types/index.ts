@@ -20,6 +20,7 @@ export interface UserSession {
   company_id: number
   role: 'admin' | 'user'
   login_time: string
+  expires_at?: string    // 🆕 추가
 }
 
 export interface LoginCredentials {
@@ -64,6 +65,7 @@ export interface Customer {
   is_active: boolean
   outstanding_balance?: number  // 🆕 미수금 (누적)
   created_at?: string
+  updated_at?: string  // 🆕 추가
 }
 
 export interface Product {
@@ -76,6 +78,7 @@ export interface Product {
   description?: string
   is_active: boolean
   created_at?: string
+  updated_at?: string  // 🆕 추가
 }
 
 export interface Transaction {
@@ -119,7 +122,9 @@ export interface TransactionWithItems {
   total_amount: number
   tax_amount: number
   notes?: string
+  status?: 'confirmed' | 'draft' | 'cancelled'  // 🆕 추가
   created_at?: string
+  updated_at?: string  // 🆕 추가
   items: TransactionItem[]
   
   // 🆕 수금 거래 참조 관련
@@ -255,7 +260,7 @@ export interface StockLot {
   traceability_number?: string   // 이력번호
   supplier_id?: number           // 공급업체 ID
   supplier_name?: string         // 공급업체명
-  status: 'active' | 'expired' | 'finished'  // 활성/만료/소진
+  status: 'active' | 'expired' | 'finished' | 'cancelled'  // 활성/만료/소진/취소
   created_at: string
 }
 

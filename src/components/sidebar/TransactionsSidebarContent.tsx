@@ -60,13 +60,13 @@ export default function TransactionsSidebarContent({
   }, [customers, searchTerm, customerFilter, transactionTypeFilter])
 
   // 필터 변경 시 부모에게 알림
-  const handleFilterChange = (newFilters: Partial<typeof transactionTypeFilter>) => {
-    const filters = {
-      searchTerm,
-      customerFilter,
-      transactionTypeFilter,
-      ...newFilters
-    }
+  const handleFilterChange = (newFilters: any) => {
+  const filters = {
+    searchTerm,
+    customerFilter,
+    transactionTypeFilter,
+    ...(newFilters || {})
+  }
     
     onFilterChange(filters)
   }

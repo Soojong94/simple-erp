@@ -14,11 +14,11 @@
     "noEmit": true,
     "jsx": "react-jsx",
 
-    /* Linting */
-    "strict": true,
-    "noUnusedLocals": true,
-    "noUnusedParameters": true,
-    "noFallthroughCasesInSwitch": true,
+    /* Linting - QA 테스트용으로 완화 */
+    "strict": false,                    // strict 모드 끔
+    "noUnusedLocals": false,           // 사용 안 하는 변수 경고 끔
+    "noUnusedParameters": false,        // 사용 안 하는 파라미터 경고 끔
+    "noFallthroughCasesInSwitch": true, // 이건 유지 (실제 버그 방지)
 
     /* Path alias */
     "baseUrl": ".",

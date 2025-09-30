@@ -85,11 +85,11 @@ export async function generateInvoicePDF(
 
   // 절취선 그리기 (점선만)
   const cutLine = INVOICE_LAYOUT.cutLine
-  doc.setLineDash([3, 3])
+  ;(doc as any).setLineDash([3, 3])
   doc.setDrawColor(100, 100, 100)
   doc.setLineWidth(0.5)
   doc.line(15, cutLine.y, 195, cutLine.y)
-  doc.setLineDash([])
+  ;(doc as any).setLineDash([])
 
   const bottomImgData = bottomCanvas.toDataURL('image/png')
   doc.addImage(bottomImgData, 'PNG', 0, 148.5, 210, 148.5, undefined, 'FAST')

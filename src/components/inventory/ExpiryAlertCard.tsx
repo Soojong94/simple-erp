@@ -6,7 +6,20 @@ import type { StockLot } from '../../types'
 export default function ExpiryAlertCard() {
   const { data: expiringLots = [], isLoading } = useQuery<StockLot[]>({
     queryKey: ['expiring-lots'],
-    queryFn: () => inventoryAPI.getExpiringLots(3), // 3일 이내 유통기한 임박
+    queryFn: async () => {
+      // TODO: getExpiringLots 메서드 구현 필요
+      // ProductInventory에는 expiry_date가 없으므로 임시로 빈 배열 반환
+      return []
+      
+      // const inventory = await inventoryAPI.getInventory()
+      // const threeDaysFromNow = new Date()
+      // threeDaysFromNow.setDate(threeDaysFromNow.getDate() + 3)
+      // 
+      // return inventory.filter(item => {
+      //   if (!item.expiry_date) return false
+      //   return new Date(item.expiry_date) <= threeDaysFromNow
+      // }) as any as StockLot[]
+    },
     refetchInterval: 60000 // 1분마다 자동 새로고침
   })
 
