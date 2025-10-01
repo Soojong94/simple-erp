@@ -140,6 +140,8 @@ export function generateTransactionExcel(
         단가: item.unit_price,
         금액: item.total_price,
         이력번호: item.traceability_number || '-',
+        원산지: item.origin || '-',                  // ✅ 원산지 추가
+        도축장: item.slaughterhouse || '-',          // ✅ 도축장 추가
         메모: item.notes || '-'
       }))
     )
@@ -147,7 +149,7 @@ export function generateTransactionExcel(
   const detailsSheet: SheetData = {
     name: '거래 상세',
     data: detailsData,
-    headers: ['거래번호', '거래일', '등록일시', '거래처', '구분', '상품', '수량', '단가', '금액', '이력번호', '메모']
+    headers: ['거래번호', '거래일', '등록일시', '거래처', '구분', '상품', '수량', '단가', '금액', '이력번호', '원산지', '도축장', '메모']
   }
   
   // 5. 시트 4: 거래처별 집계

@@ -190,6 +190,43 @@ function TransactionItemCard({ item, index, products, customerId, frequentProduc
         />
       </div>
 
+      {/* 원산지/도축장 (고기업 특화) */}
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-3">
+        {/* 원산지 */}
+        <div>
+          <label className="block text-sm font-medium text-gray-700 mb-1">
+            🌍 원산지
+          </label>
+          <input
+            type="text"
+            value={item.origin || ''}
+            onChange={(e) => onUpdate(index, 'origin', e.target.value)}
+            placeholder="예: 국내산(충청), 브라질산"
+            className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+          />
+          <p className="text-xs text-gray-500 mt-1">
+            💡 상품에서 자동 로딩됨 (수정 가능)
+          </p>
+        </div>
+
+        {/* 도축장 */}
+        <div>
+          <label className="block text-sm font-medium text-gray-700 mb-1">
+            🏭 도축장
+          </label>
+          <input
+            type="text"
+            value={item.slaughterhouse || ''}
+            onChange={(e) => onUpdate(index, 'slaughterhouse', e.target.value)}
+            placeholder="예: OO육가공센터, XX축산"
+            className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-purple-500"
+          />
+          <p className="text-xs text-gray-500 mt-1">
+            💡 상품에서 자동 로딩됨 (수정 가능)
+          </p>
+        </div>
+      </div>
+
       {/* 상품 메모 (선택사항) */}
       <div>
         <label className="block text-sm font-medium text-gray-700 mb-1">

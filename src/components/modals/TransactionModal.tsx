@@ -126,11 +126,20 @@ export default function TransactionModal({
     queryFn: () => transactionAPI.getAll()
   })
 
-  // 거래처별 상품 사용 통계 (최근 수량 + 단가 + 이력번호 포함) 🎉
+  // 거래처별 상품 사용 통계 (최근 수량 + 단가 + 이력번호 + 원산지 + 도축장 포함) 🎉
   const productUsageStats = useMemo(() => {
     if (!formData.customer_id || !allTransactions) return new Map()
 
-    const stats = new Map<number, { count: number, lastUsed: string, lastQuantity: number, lastUnitPrice: number, lastTraceability: string, lastTransactionId: number }>()
+    const stats = new Map<number, { 
+      count: number, 
+      lastUsed: string, 
+      lastQuantity: number, 
+      lastUnitPrice: number, 
+      lastTraceability: string, 
+      lastOrigin: string,           // ✅ 원산지 추가
+      lastSlaughterhouse: string,   // ✅ 도축장 추가
+      lastTransactionId: number 
+    }>()
 
     // 해당 거래처의 거래만 필터링
     const customerTransactions = allTransactions.filter(
@@ -145,6 +154,8 @@ export default function TransactionModal({
           lastQuantity: 1, 
           lastUnitPrice: 0, 
           lastTraceability: '', 
+          lastOrigin: '',              // ✅ 원산지 초기값
+          lastSlaughterhouse: '',      // ✅ 도축장 초기값
           lastTransactionId: 0 
         }
 
@@ -160,6 +171,8 @@ export default function TransactionModal({
             lastQuantity: item.quantity,
             lastUnitPrice: item.unit_price,
             lastTraceability: item.traceability_number || '',
+            lastOrigin: item.origin || '',                      // ✅ 원산지 저장
+            lastSlaughterhouse: item.slaughterhouse || '',      // ✅ 도축장 저장
             lastTransactionId: transaction.id || 0
           })
         } else {
@@ -309,13 +322,26 @@ export default function TransactionModal({
         updatedItems[index].product_name = product.name
         updatedItems[index].unit = product.unit
 
-        // ✅ 원산지/도축장 자동 로딩
-        updatedItems[index].origin = product.origin
-        updatedItems[index].slaughterhouse = product.slaughterhouse
-        console.log(`🌍 원산지/도축장 자동 로딩: ${product.name} - 원산지: ${product.origin || '없음'}, 도축장: ${product.slaughterhouse || '없음'}`)
-
-        // 해당 거래처와 해당 상품의 최근 거래 정보 가져오기
+        // ✅ 원산지/도축장 자동 로딩 (우선순위: 최근 거래 > 상품 기본값)
         const stats = productUsageStats.get(value)
+        
+        if (stats && (stats.lastOrigin || stats.lastSlaughterhouse)) {
+          // 1순위: 최근 거래의 원산지/도축장
+          updatedItems[index].origin = stats.lastOrigin
+          updatedItems[index].slaughterhouse = stats.lastSlaughterhouse
+          console.log(`🌍 최근 거래 원산지/도축장 로딩: ${product.name}`)
+          console.log(`   - 원산지: "${stats.lastOrigin}" (최근 거래)`)
+          console.log(`   - 도축장: "${stats.lastSlaughterhouse}" (최근 거래)`)
+        } else if (product.origin || product.slaughterhouse) {
+          // 2순위: 상품 기본값
+          updatedItems[index].origin = product.origin
+          updatedItems[index].slaughterhouse = product.slaughterhouse
+          console.log(`🌍 상품 기본 원산지/도축장 로딩: ${product.name}`)
+          console.log(`   - 원산지: "${product.origin || '없음'}" (상품 기본값)`)
+          console.log(`   - 도축장: "${product.slaughterhouse || '없음'}" (상품 기본값)`)
+        } else {
+          console.log(`⚠️ 원산지/도축장 없음: ${product.name} - 직접 입력 필요`)
+        }
 
         // 🎯 1순위: 최근 거래 단가 (기존에 거래했던 금액)
         if (stats && stats.lastUnitPrice > 0) {

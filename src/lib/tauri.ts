@@ -530,6 +530,8 @@ export const inventoryAPI = {
           reference_type: 'purchase',
           reference_id: transaction.id,
           traceability_number: item.traceability_number,
+          origin: item.origin,                    // ✅ 원산지 추가
+          slaughterhouse: item.slaughterhouse,    // ✅ 도축장 추가
           notes: `매입 거래 자동 입고 - ${transaction.customer_name}`
         })
         
@@ -570,6 +572,8 @@ export const inventoryAPI = {
             transaction_id: transaction.id,
             reference_type: 'sales',
             reference_id: transaction.id,
+            origin: item.origin,                    // ✅ 원산지 추가
+            slaughterhouse: item.slaughterhouse,    // ✅ 도축장 추가
             notes: `매출 거래 자동 출고 - ${transaction.customer_name} (LOT: ${lot.lot_number})`
           })
           
