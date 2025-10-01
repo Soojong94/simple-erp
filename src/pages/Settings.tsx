@@ -18,7 +18,7 @@ import {
   type BackupSettings,
   type BackupFileInfo
 } from '../lib/backup'
-import { deleteAccount } from '../lib/auth'
+import { deleteAccount } from '../lib/auth/index'
 
 // 컴포넌트 imports
 import BackupMessage from '../components/backup/BackupMessage'

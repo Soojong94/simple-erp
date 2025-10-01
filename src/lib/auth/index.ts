@@ -1,4 +1,4 @@
-import type { User, UserSession, LoginCredentials, RegisterData } from '../../types'
+import type { User, UserSession, LoginCredentials, RegisterData, DeleteAccountResult } from '../../types'
 import { hashPassword, verifyPassword, generateSessionToken, getSessionExpiry, isSessionValid, checkLoginAttempts, recordLoginAttempt } from './utils'
 
 // localStorage 키
@@ -341,3 +341,5 @@ export function createDemoData(): void {
     console.log('로그인 정보: admin/1234 또는 demo/1234')
   }
 }
+
+

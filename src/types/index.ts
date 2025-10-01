@@ -283,3 +283,9 @@ export interface InventoryStats {
   totalValue: number             // 총 재고 금액
   expiredCount: number           // 만료된 로트 수
 }
+
+// 인증 관련 타입
+export interface DeleteAccountResult {
+  success: boolean
+  error?: string
+}
