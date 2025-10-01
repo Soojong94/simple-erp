@@ -305,6 +305,16 @@ export default function Settings() {
 
   // 회원 탈퇴 핸들러
   const handleDeleteAccount = async () => {
+    // 세션 확인 먼저
+    const currentSession = localStorage.getItem('simple-erp-current-session')
+    console.log('🔍 탈퇴 시도 - 현재 세션:', currentSession)
+    
+    if (!currentSession) {
+      alert('❌ 세션이 만료되었습니다. 다시 로그인해주세요.')
+      window.location.reload()
+      return
+    }
+    
     const password = window.prompt('회원 탈퇴를 위해 비밀번호를 입력하세요:')
     
     if (!password) return
@@ -314,8 +324,6 @@ export default function Settings() {
       
       if (result.success) {
         alert('✅ 계정이 탈퇴되었습니다. 로그인 페이지로 이동합니다.')
-        // 로그아웃은 deleteAccount 함수에서 처리됨
-        // 페이지 새로고침으로 AuthWrapper가 로그인 페이지로 리다이렉트
         window.location.reload()
       } else {
         alert(`❌ ${result.error}`)
@@ -463,16 +471,29 @@ export default function Settings() {
                   <span className="mr-2">⚠️</span>
                   계정 탈퇴
                 </h3>
-                <p className="text-sm text-gray-600">
-                  계정을 탈퇴하면 로그인할 수 없습니다.<br/>
-                  회사 데이터는 다른 관리자가 계속 사용할 수 있습니다.
+                <p className="text-sm text-gray-600 mb-3">
+                  계정을 탈퇴하면 더 이상 로그인할 수 없습니다.
                 </p>
+                <div className="bg-red-50 border-l-4 border-red-500 p-3 mb-4">
+                  <p className="text-sm text-red-800 font-medium">
+                    ⚠️ <strong>모든 회사 데이터가 영구적으로 삭제됩니다</strong>
+                  </p>
+                  <ul className="text-xs text-red-700 mt-2 ml-4 list-disc">
+                    <li>모든 거래처 삭제</li>
+                    <li>모든 상품 삭제</li>
+                    <li>모든 거래 내역 삭제</li>
+                    <li>회사 정보 삭제</li>
+                  </ul>
+                  <p className="text-xs text-red-700 mt-2">
+                    ※ 이 작업은 되돌릴 수 없습니다. 탈퇴 전 백업을 권장합니다.
+                  </p>
+                </div>
               </div>
               <button
                 onClick={handleDeleteAccount}
                 className="bg-red-600 hover:bg-red-700 text-white px-4 py-2 rounded-lg font-medium transition-colors"
               >
-                계정 탈퇴
+                계정 탈퇴 (모든 데이터 삭제)
               </button>
             </div>
 
@@ -481,10 +502,23 @@ export default function Settings() {
               <h4 className="font-medium text-blue-800 mb-2">📝 탈퇴 안내</h4>
               <ul className="text-sm text-gray-700 space-y-1 list-disc list-inside">
                 <li>탈퇴 시 비밀번호 확인이 필요합니다</li>
-                <li>회사의 마지막 계정은 탈퇴할 수 없습니다</li>
-                <li>회사 데이터는 삭제되지 않으며 다른 관리자가 관리합니다</li>
+                <li>admin과 demo 계정은 삭제할 수 없습니다</li>
+                <li><strong>탈퇴 시 모든 회사 데이터가 함께 삭제됩니다</strong></li>
+                <li>데이터를 보존하려는 경우 탈퇴 전 백업을 받아두세요</li>
                 <li>탈퇴 후 로그인 페이지로 이동합니다</li>
               </ul>
+            </div>
+
+            {/* 백업 권장 */}
+            <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4">
+              <h4 className="font-medium text-yellow-800 mb-2">💾 탈퇴 전 백업 권장</h4>
+              <p className="text-sm text-gray-700 mb-2">
+                탈퇴 하면 모든 데이터가 삭제되므로,<br/>
+                중요한 데이터는 <strong>"백업 관리" 탭</strong>에서 백업하세요.
+              </p>
+              <p className="text-xs text-gray-600">
+                ※ 백업 파일을 보관해두면 나중에 새 계정으로 복원할 수 있습니다.
+              </p>
             </div>
           </div>
         )}

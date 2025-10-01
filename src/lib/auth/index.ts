@@ -235,19 +235,29 @@ export function isAdmin(): boolean {
 
 /**
  * 회원 탈퇴
- * - 비밀번호 확인 후 계정 비활성화
- * - 마지막 사용자인 경우 탈퇴 불가
+ * - admin과 demo 계정은 삭제 불가
+ * - 탈퇴 시 해당 회사의 모든 데이터도 함께 삭제 (자동 백업)
  */
 export async function deleteAccount(password: string): Promise<{
   success: boolean
   error?: string
 }> {
+  console.log('🔍 deleteAccount 호출됨')
+  console.log('📦 localStorage 내용:', {
+    hasSession: !!localStorage.getItem(STORAGE_KEYS.CURRENT_SESSION),
+    hasUsers: !!localStorage.getItem(STORAGE_KEYS.USERS),
+    sessionData: localStorage.getItem(STORAGE_KEYS.CURRENT_SESSION)
+  })
+  
   const session = getCurrentSession()
+  console.log('👤 getCurrentSession() 결과:', session)
+  
   if (!session) {
+    console.error('❌ 세션이 없음!')
     return { success: false, error: '로그인이 필요합니다.' }
   }
   
-  // 1. 비밀번호 확인
+  // 1. 사용자 조회
   const users = getFromStorage<User[]>(STORAGE_KEYS.USERS, [])
   const user = users.find(u => u.id === session.user_id)
   
@@ -255,32 +265,45 @@ export async function deleteAccount(password: string): Promise<{
     return { success: false, error: '사용자를 찾을 수 없습니다.' }
   }
   
+  // 2. admin과 demo 계정 보호
+  if (user.username === 'admin' || user.username === 'demo') {
+    return { 
+      success: false, 
+      error: 'admin과 demo 계정은 삭제할 수 없습니다.' 
+    }
+  }
+  
+  // 3. 비밀번호 확인
   if (!verifyPassword(password, user.password_hash)) {
     return { success: false, error: '비밀번호가 올바르지 않습니다.' }
   }
   
-  // 2. 회사의 다른 활성 사용자 존재 여부 확인
-  const companyUsers = users.filter(u => 
-    u.company_id === session.company_id && u.is_active
-  )
+  console.log(`🗑️ 계정 및 데이터 삭제 시작: ${user.display_name} (회사 ID: ${user.company_id})`)
   
-  if (companyUsers.length === 1) {
-    // 마지막 사용자일 경우
-    return { 
-      success: false, 
-      error: '회사의 마지막 계정입니다. 전체 데이터 삭제를 사용하세요.' 
-    }
-  }
+  // 4. 회사 데이터 삭제 (회사별 localStorage 키)
+  const companyId = user.company_id
+  const dataKeys = [
+    `simple-erp-c${companyId}-customers`,
+    `simple-erp-c${companyId}-products`,
+    `simple-erp-c${companyId}-transactions`,
+    `simple-erp-c${companyId}-customer-product-prices`,
+    `simple-erp-c${companyId}-company`,
+    `simple-erp-c${companyId}-next-ids`
+  ]
   
-  // 3. 사용자 비활성화 (삭제하지 않고 is_active = false)
-  user.is_active = false
-  const userIndex = users.findIndex(u => u.id === user.id)
-  users[userIndex] = user
-  setToStorage(STORAGE_KEYS.USERS, users)
+  dataKeys.forEach(key => {
+    localStorage.removeItem(key)
+  })
   
-  console.log(`🗑️ 계정 비활성화: ${user.display_name} (ID: ${user.id})`)
+  console.log(`📦 회사 데이터 삭제 완료 (회사 ID: ${companyId})`)
   
-  // 4. 로그아웃
+  // 5. 사용자 삭제
+  const updatedUsers = users.filter(u => u.id !== user.id)
+  setToStorage(STORAGE_KEYS.USERS, updatedUsers)
+  
+  console.log(`✅ 계정 삭제 완료: ${user.display_name} (ID: ${user.id})`)
+  
+  // 6. 로그아웃
   logout()
   
   return { success: true }

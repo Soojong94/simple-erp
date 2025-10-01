@@ -297,14 +297,7 @@ export default function Transactions() {
               매출 및 매입 거래 내역을 관리합니다. 행을 클릭하면 상세 정보를 볼 수 있습니다.
             </p>
           </div>
-          <div className="mt-4 sm:mt-0 sm:ml-16 sm:flex-none flex gap-2">
-            <button
-              type="button"
-              onClick={handleDeleteFilteredTransactions}
-              className="inline-flex items-center px-4 py-2 border border-transparent shadow-sm text-sm font-medium rounded-md text-white bg-red-600 hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500"
-            >
-              🗑️ 필터링된 항목 삭제 ({filteredTransactions?.length || 0})
-            </button>
+          <div className="mt-4 sm:mt-0 sm:ml-16 sm:flex-none">
             <button
               type="button"
               onClick={() => handleAddTransaction()}
@@ -314,6 +307,19 @@ export default function Transactions() {
             </button>
           </div>
         </div>
+
+        {/* 필터링된 항목 삭제 버튼 */}
+        {filteredTransactions && filteredTransactions.length > 0 && (
+          <div className="mt-6 flex justify-end">
+            <button
+              type="button"
+              onClick={handleDeleteFilteredTransactions}
+              className="inline-flex items-center px-4 py-2 border border-transparent shadow-sm text-sm font-medium rounded-md text-white bg-red-600 hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500"
+            >
+              🗑️ 필터링된 항목 삭제 ({filteredTransactions.length})
+            </button>
+          </div>
+        )}
 
         {/* 통계 카드 */}
         <div className="mt-6 grid grid-cols-1 gap-5 sm:grid-cols-4">
