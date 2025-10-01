@@ -11,6 +11,7 @@ import TransactionsSidebarContent from '../components/sidebar/TransactionsSideba
 import SortDropdown from '../components/SortDropdown'
 import Pagination from '../components/Pagination'
 import InvoicePreviewModal from '../components/invoice/InvoicePreviewModal'  // 🆕 추가
+import { deleteAllTransactions } from '../lib/data-management'
 import type { TransactionWithItems } from '../types'
 
 export default function Transactions() {
@@ -105,6 +106,15 @@ export default function Transactions() {
   const handleDeleteTransaction = (id: number, customerName: string) => {
     if (confirm(`${customerName}과의 거래를 삭제하시겠습니까?`)) {
       deleteMutation.mutate(id)
+    }
+  }
+
+  const handleDeleteAllTransactions = async () => {
+    const success = await deleteAllTransactions()
+    if (success) {
+      queryClient.invalidateQueries({ queryKey: ['transactions'] })
+      queryClient.invalidateQueries({ queryKey: ['customers'] })
+      queryClient.invalidateQueries({ queryKey: ['inventory'] })
     }
   }
 
@@ -251,7 +261,14 @@ export default function Transactions() {
               매출 및 매입 거래 내역을 관리합니다. 행을 클릭하면 상세 정보를 볼 수 있습니다.
             </p>
           </div>
-          <div className="mt-4 sm:mt-0 sm:ml-16 sm:flex-none">
+          <div className="mt-4 sm:mt-0 sm:ml-16 sm:flex-none flex gap-2">
+            <button
+              type="button"
+              onClick={handleDeleteAllTransactions}
+              className="inline-flex items-center px-4 py-2 border border-transparent shadow-sm text-sm font-medium rounded-md text-white bg-red-600 hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500"
+            >
+              🗑️ 전체 삭제
+            </button>
             <button
               type="button"
               onClick={() => handleAddTransaction()}

@@ -53,9 +53,12 @@ export function generateCustomerExcel(
       이메일: c.email || '-',
       주소: c.address || '-',
       담당자: c.contact_person || '-',
-      활성상태: c.is_active ? '활성' : '비활성'
+      미수금: c.outstanding_balance || 0,
+      활성상태: c.is_active ? '활성' : '비활성',
+      등록일: c.created_at ? new Date(c.created_at).toLocaleDateString('ko-KR') : '-',
+      수정일: c.updated_at ? new Date(c.updated_at).toLocaleDateString('ko-KR') : '-'
     })),
-    headers: ['거래처명', '사업자번호', '대표자', '거래처구분', '전화', '이메일', '주소', '담당자', '활성상태']
+    headers: ['거래처명', '사업자번호', '대표자', '거래처구분', '전화', '이메일', '주소', '담당자', '미수금', '활성상태', '등록일', '수정일']
   }
   
   // 4. 시트 3: 고객 목록
@@ -71,9 +74,11 @@ export function generateCustomerExcel(
         이메일: c.email || '-',
         주소: c.address || '-',
         담당자: c.contact_person || '-',
-        활성상태: c.is_active ? '활성' : '비활성'
+        미수금: c.outstanding_balance || 0,
+        활성상태: c.is_active ? '활성' : '비활성',
+        등록일: c.created_at ? new Date(c.created_at).toLocaleDateString('ko-KR') : '-'
       })),
-    headers: ['거래처명', '사업자번호', '대표자', '전화', '이메일', '주소', '담당자', '활성상태']
+    headers: ['거래처명', '사업자번호', '대표자', '전화', '이메일', '주소', '담당자', '미수금', '활성상태', '등록일']
   }
   
   // 5. 시트 4: 공급업체 목록
@@ -89,9 +94,10 @@ export function generateCustomerExcel(
         이메일: c.email || '-',
         주소: c.address || '-',
         담당자: c.contact_person || '-',
-        활성상태: c.is_active ? '활성' : '비활성'
+        활성상태: c.is_active ? '활성' : '비활성',
+        등록일: c.created_at ? new Date(c.created_at).toLocaleDateString('ko-KR') : '-'
       })),
-    headers: ['거래처명', '사업자번호', '대표자', '전화', '이메일', '주소', '담당자', '활성상태']
+    headers: ['거래처명', '사업자번호', '대표자', '전화', '이메일', '주소', '담당자', '활성상태', '등록일']
   }
   
   // 6. 파일명 생성

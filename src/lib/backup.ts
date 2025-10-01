@@ -535,3 +535,55 @@ export const formatFileSize = (bytes: number): string => {
   
   return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i]
 }
+
+/**
+ * 전체 데이터 삭제 (초기화)
+ * - 강제 백업 후 모든 ERP 데이터 삭제
+ * - Company, Users, Session은 유지
+ */
+export const deleteAllData = async (): Promise<{ success: boolean; error?: string }> => {
+  try {
+    console.log('💾 백업 파일 생성 중...')
+    
+    // 1. 강제 백업 먼저 수행
+    const backupSuccess = await exportBackup(false)
+    if (!backupSuccess) {
+      return { 
+        success: false, 
+        error: '백업 생성에 실패했습니다. 안전을 위해 삭제를 중단합니다.' 
+      }
+    }
+    
+    // 2. 백업 완료 대기 (파일 저장 시간 확보)
+    await new Promise(resolve => setTimeout(resolve, 1000))
+    
+    console.log('🗑️ 전체 데이터 삭제 시작...')
+    
+    // 3. ERP 데이터 삭제
+    localStorage.removeItem(STORAGE_KEYS.CUSTOMERS)
+    localStorage.removeItem(STORAGE_KEYS.PRODUCTS)
+    localStorage.removeItem(STORAGE_KEYS.TRANSACTIONS)
+    localStorage.removeItem(STORAGE_KEYS.CUSTOMER_PRODUCT_PRICES)
+    localStorage.removeItem(STORAGE_KEYS.NEXT_IDS)  // ID 카운터도 초기화
+    
+    // 4. 백업 관련 설정은 유지
+    // STORAGE_KEYS.LAST_BACKUP_DATE - 유지
+    // STORAGE_KEYS.AUTO_BACKUP_ENABLED - 유지
+    // STORAGE_KEYS.BACKUP_SETTINGS - 유지
+    
+    // 5. 유지되는 데이터
+    // - STORAGE_KEYS.COMPANY (회사 정보)
+    // - 'simple-erp-users' (사용자 계정)
+    // - 'simple-erp-current-session' (세션)
+    
+    console.log('✅ 전체 데이터 삭제 완료')
+    
+    return { success: true }
+  } catch (error) {
+    console.error('❌ 데이터 삭제 실패:', error)
+    return { 
+      success: false, 
+      error: '데이터 삭제 중 오류가 발생했습니다.' 
+    }
+  }
+}

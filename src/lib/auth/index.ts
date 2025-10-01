@@ -234,6 +234,59 @@ export function isAdmin(): boolean {
 }
 
 /**
+ * 회원 탈퇴
+ * - 비밀번호 확인 후 계정 비활성화
+ * - 마지막 사용자인 경우 탈퇴 불가
+ */
+export async function deleteAccount(password: string): Promise<{
+  success: boolean
+  error?: string
+}> {
+  const session = getCurrentSession()
+  if (!session) {
+    return { success: false, error: '로그인이 필요합니다.' }
+  }
+  
+  // 1. 비밀번호 확인
+  const users = getFromStorage<User[]>(STORAGE_KEYS.USERS, [])
+  const user = users.find(u => u.id === session.user_id)
+  
+  if (!user) {
+    return { success: false, error: '사용자를 찾을 수 없습니다.' }
+  }
+  
+  if (!verifyPassword(password, user.password_hash)) {
+    return { success: false, error: '비밀번호가 올바르지 않습니다.' }
+  }
+  
+  // 2. 회사의 다른 활성 사용자 존재 여부 확인
+  const companyUsers = users.filter(u => 
+    u.company_id === session.company_id && u.is_active
+  )
+  
+  if (companyUsers.length === 1) {
+    // 마지막 사용자일 경우
+    return { 
+      success: false, 
+      error: '회사의 마지막 계정입니다. 전체 데이터 삭제를 사용하세요.' 
+    }
+  }
+  
+  // 3. 사용자 비활성화 (삭제하지 않고 is_active = false)
+  user.is_active = false
+  const userIndex = users.findIndex(u => u.id === user.id)
+  users[userIndex] = user
+  setToStorage(STORAGE_KEYS.USERS, users)
+  
+  console.log(`🗑️ 계정 비활성화: ${user.display_name} (ID: ${user.id})`)
+  
+  // 4. 로그아웃
+  logout()
+  
+  return { success: true }
+}
+
+/**
  * 데모 데이터 생성 (개발용)
  */
 export function createDemoData(): void {

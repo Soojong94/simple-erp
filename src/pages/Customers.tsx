@@ -7,6 +7,7 @@ import CustomerModal from '../components/modals/CustomerModal'
 import CustomerExpandableRow from '../components/expandable/CustomerExpandableRow'
 import SortDropdown from '../components/SortDropdown'
 import Pagination from '../components/Pagination'
+import { deleteAllCustomers } from '../lib/data-management'
 import type { Customer } from '../types'
 
 export default function Customers() {
@@ -54,6 +55,48 @@ export default function Customers() {
     if (confirm(`'${name}' 거래처를 정말 삭제하시겠습니까?`)) {
       deleteMutation.mutate(id)
     }
+  }
+
+  // 필터링된 거래처만 삭제
+  const handleDeleteFilteredCustomers = async () => {
+    if (!filteredCustomers || filteredCustomers.length === 0) {
+      alert('삭제할 거래처가 없습니다.')
+      return
+    }
+
+    const confirmation = window.confirm(
+      `현재 필터링된 ${filteredCustomers.length}개의 거래처를 삭제하시겠습니까?\n\n` +
+      '이 작업은 되돌릴 수 없습니다.'
+    )
+
+    if (!confirmation) return
+
+    let deletedCount = 0
+    let failedCount = 0
+
+    for (const customer of filteredCustomers) {
+      if (customer.id) {
+        try {
+          await customerAPI.delete(customer.id)
+          deletedCount++
+        } catch (error) {
+          console.error(`거래처 ${customer.name} 삭제 실패:`, error)
+          failedCount++
+        }
+      }
+    }
+
+    if (failedCount > 0) {
+      alert(
+        `⚠️ 일부 거래처 삭제 실패\n\n` +
+        `성공: ${deletedCount}개\n` +
+        `실패: ${failedCount}개`
+      )
+    } else {
+      alert(`✅ ${deletedCount}개의 거래처가 삭제되었습니다.`)
+    }
+
+    queryClient.invalidateQueries({ queryKey: ['customers'] })
   }
 
   // 필터링된 고객 목록
@@ -123,7 +166,14 @@ export default function Customers() {
               고객 및 공급업체 정보를 관리합니다. 행을 클릭하면 상세 정보를 볼 수 있습니다.
             </p>
           </div>
-          <div className="mt-4 sm:mt-0 sm:ml-16 sm:flex-none">
+          <div className="mt-4 sm:mt-0 sm:ml-16 sm:flex-none flex gap-2">
+            <button
+              type="button"
+              onClick={handleDeleteAllCustomers}
+              className="inline-flex items-center px-4 py-2 border border-transparent shadow-sm text-sm font-medium rounded-md text-white bg-red-600 hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500"
+            >
+              🗑️ 전체 삭제
+            </button>
             <button
               type="button"
               onClick={handleAddCustomer}

@@ -63,10 +63,16 @@ export function generateProductExcel(
       카테고리: p.category || '-',
       단위: p.unit,
       참고단가: p.unit_price || 0,
+      이력번호: p.traceability_number || '-',
+      원산지: p.origin || '-',
+      도축장: p.slaughterhouse || '-',
+      재고관리: p.use_inventory_management ? '사용' : '미사용',
       설명: p.description || '-',
-      활성상태: p.is_active ? '활성' : '비활성'
+      활성상태: p.is_active ? '활성' : '비활성',
+      등록일: p.created_at ? new Date(p.created_at).toLocaleDateString('ko-KR') : '-',
+      수정일: p.updated_at ? new Date(p.updated_at).toLocaleDateString('ko-KR') : '-'
     })),
-    headers: ['상품명', '상품코드', '카테고리', '단위', '참고단가', '설명', '활성상태']
+    headers: ['상품명', '상품코드', '카테고리', '단위', '참고단가', '이력번호', '원산지', '도축장', '재고관리', '설명', '활성상태', '등록일', '수정일']
   }
   
   // 4. 시트 3-6: 카테고리별
@@ -79,10 +85,15 @@ export function generateProductExcel(
         상품코드: p.code || '-',
         단위: p.unit,
         참고단가: p.unit_price || 0,
+        이력번호: p.traceability_number || '-',
+        원산지: p.origin || '-',
+        도축장: p.slaughterhouse || '-',
+        재고관리: p.use_inventory_management ? '사용' : '미사용',
         설명: p.description || '-',
-        활성상태: p.is_active ? '활성' : '비활성'
+        활성상태: p.is_active ? '활성' : '비활성',
+        등록일: p.created_at ? new Date(p.created_at).toLocaleDateString('ko-KR') : '-'
       })),
-    headers: ['상품명', '상품코드', '단위', '참고단가', '설명', '활성상태']
+    headers: ['상품명', '상품코드', '단위', '참고단가', '이력번호', '원산지', '도축장', '재고관리', '설명', '활성상태', '등록일']
   }))
   
   // 5. 파일명

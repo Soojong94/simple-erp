@@ -8,6 +8,7 @@ import ProductModal from '../components/modals/ProductModal'
 import ProductExpandableRow from '../components/expandable/ProductExpandableRow'
 import SortDropdown from '../components/SortDropdown'
 import Pagination from '../components/Pagination'
+import { deleteAllProducts } from '../lib/data-management'
 import type { Product } from '../types'
 
 export default function Products() {
@@ -63,6 +64,13 @@ export default function Products() {
   const handleDeleteProduct = (id: number, name: string) => {
     if (confirm(`'${name}' 상품을 정말 삭제하시겠습니까?`)) {
       deleteMutation.mutate(id)
+    }
+  }
+
+  const handleDeleteAllProducts = async () => {
+    const success = await deleteAllProducts()
+    if (success) {
+      queryClient.invalidateQueries({ queryKey: ['products'] })
     }
   }
 
@@ -170,7 +178,14 @@ export default function Products() {
               판매 및 구매하는 상품 정보를 관리합니다. 행을 클릭하면 상세 정보를 볼 수 있습니다.
             </p>
           </div>
-          <div className="mt-4 sm:mt-0 sm:ml-16 sm:flex-none">
+          <div className="mt-4 sm:mt-0 sm:ml-16 sm:flex-none flex gap-2">
+            <button
+              type="button"
+              onClick={handleDeleteAllProducts}
+              className="inline-flex items-center px-4 py-2 border border-transparent shadow-sm text-sm font-medium rounded-md text-white bg-red-600 hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500"
+            >
+              🗑️ 전체 삭제
+            </button>
             <button
               type="button"
               onClick={handleAddProduct}

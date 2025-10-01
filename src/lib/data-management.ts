@@ -103,15 +103,17 @@ export const deleteAllCustomers = async (): Promise<boolean> => {
       return false
     }
 
-    const confirmation = window.confirm(
-      `⚠️ ${customers.length}개의 거래처를 모두 삭제하시겠습니까?\n\n` +
-      '연관된 거래 내역이 있으면 삭제할 수 없습니다.\n' +
-      '이 작업은 되돌릴 수 없습니다.'
-    )
+    // 거래 내역이 있는 거래처 개수 체크
+    const transactions = await transactionAPI.getAll()
+    const customersWithTx = new Set(transactions.map(tx => tx.customer_id))
+    const hasTransactions = customers.some(c => c.id && customersWithTx.has(c.id))
 
-    if (!confirmation) {
-      return false
-    }
+    const warningMessage = hasTransactions 
+      ? `⚠️ 주의: 일부 거래처는 거래 내역이 있습니다.\n\n삭제하시겠습니까?\n(${customers.length}개 거래처)\n\n이 작업은 되돌릴 수 없습니다.`
+      : `${customers.length}개의 거래처를 삭제하시겠습니까?\n\n이 작업은 되돌릴 수 없습니다.`
+
+    const confirmation = window.confirm(warningMessage)
+    if (!confirmation) return false
 
     let deletedCount = 0
     let failedCount = 0
@@ -132,8 +134,7 @@ export const deleteAllCustomers = async (): Promise<boolean> => {
       alert(
         `⚠️ 일부 거래처 삭제 실패\n\n` +
         `성공: ${deletedCount}개\n` +
-        `실패: ${failedCount}개\n\n` +
-        `연관된 거래 내역이 있는 거래처는 삭제할 수 없습니다.`
+        `실패: ${failedCount}개`
       )
     } else {
       alert(`✅ ${deletedCount}개의 거래처가 삭제되었습니다.`)
@@ -161,15 +162,27 @@ export const deleteAllProducts = async (): Promise<boolean> => {
       return false
     }
 
-    const confirmation = window.confirm(
-      `⚠️ ${products.length}개의 상품을 모두 삭제하시겠습니까?\n\n` +
-      '연관된 거래 내역이나 재고가 있으면 삭제할 수 없습니다.\n' +
-      '이 작업은 되돌릴 수 없습니다.'
+    // 거래 내역이나 재고가 있는 상품 체크
+    const transactions = await transactionAPI.getAll()
+    const inventory = await inventoryAPI.getInventory()
+    
+    const productsWithTx = new Set(
+      transactions.flatMap(tx => tx.items.map(item => item.product_id))
+    )
+    const productsWithStock = new Set(
+      inventory.filter(inv => inv.current_stock > 0).map(inv => inv.product_id)
+    )
+    
+    const hasTransactionsOrStock = products.some(p => 
+      p.id && (productsWithTx.has(p.id) || productsWithStock.has(p.id))
     )
 
-    if (!confirmation) {
-      return false
-    }
+    const warningMessage = hasTransactionsOrStock
+      ? `⚠️ 주의: 일부 상품은 거래 내역이나 재고가 있습니다.\n\n삭제하시겠습니까?\n(${products.length}개 상품)\n\n이 작업은 되돌릴 수 없습니다.`
+      : `${products.length}개의 상품을 삭제하시겠습니까?\n\n이 작업은 되돌릴 수 없습니다.`
+
+    const confirmation = window.confirm(warningMessage)
+    if (!confirmation) return false
 
     let deletedCount = 0
     let failedCount = 0
@@ -190,8 +203,7 @@ export const deleteAllProducts = async (): Promise<boolean> => {
       alert(
         `⚠️ 일부 상품 삭제 실패\n\n` +
         `성공: ${deletedCount}개\n` +
-        `실패: ${failedCount}개\n\n` +
-        `연관된 거래 내역이나 재고가 있는 상품은 삭제할 수 없습니다.`
+        `실패: ${failedCount}개`
       )
     } else {
       alert(`✅ ${deletedCount}개의 상품이 삭제되었습니다.`)
@@ -225,9 +237,7 @@ export const deleteAllTransactions = async (): Promise<boolean> => {
       '이 작업은 되돌릴 수 없습니다.'
     )
 
-    if (!confirmation) {
-      return false
-    }
+    if (!confirmation) return false
 
     let deletedCount = 0
     let failedCount = 0
