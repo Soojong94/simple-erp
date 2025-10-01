@@ -67,11 +67,46 @@ export default function Products() {
     }
   }
 
-  const handleDeleteAllProducts = async () => {
-    const success = await deleteAllProducts()
-    if (success) {
-      queryClient.invalidateQueries({ queryKey: ['products'] })
+  // 필터링된 상품만 삭제
+  const handleDeleteFilteredProducts = async () => {
+    if (!filteredProducts || filteredProducts.length === 0) {
+      alert('삭제할 상품이 없습니다.')
+      return
     }
+
+    const confirmation = window.confirm(
+      `현재 필터링된 ${filteredProducts.length}개의 상품을 삭제하시겠습니까?\n\n` +
+      '이 작업은 되돌릴 수 없습니다.'
+    )
+
+    if (!confirmation) return
+
+    let deletedCount = 0
+    let failedCount = 0
+
+    for (const product of filteredProducts) {
+      if (product.id) {
+        try {
+          await productAPI.delete(product.id)
+          deletedCount++
+        } catch (error) {
+          console.error(`상품 ${product.name} 삭제 실패:`, error)
+          failedCount++
+        }
+      }
+    }
+
+    if (failedCount > 0) {
+      alert(
+        `⚠️ 일부 상품 삭제 실패\n\n` +
+        `성공: ${deletedCount}개\n` +
+        `실패: ${failedCount}개`
+      )
+    } else {
+      alert(`✅ ${deletedCount}개의 상품이 삭제되었습니다.`)
+    }
+
+    queryClient.invalidateQueries({ queryKey: ['products'] })
   }
 
   // 카테고리 목록 추출
@@ -181,10 +216,10 @@ export default function Products() {
           <div className="mt-4 sm:mt-0 sm:ml-16 sm:flex-none flex gap-2">
             <button
               type="button"
-              onClick={handleDeleteAllProducts}
+              onClick={handleDeleteFilteredProducts}
               className="inline-flex items-center px-4 py-2 border border-transparent shadow-sm text-sm font-medium rounded-md text-white bg-red-600 hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500"
             >
-              🗑️ 전체 삭제
+              🗑️ 필터링된 항목 삭제 ({filteredProducts.length})
             </button>
             <button
               type="button"

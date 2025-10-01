@@ -109,13 +109,49 @@ export default function Transactions() {
     }
   }
 
-  const handleDeleteAllTransactions = async () => {
-    const success = await deleteAllTransactions()
-    if (success) {
-      queryClient.invalidateQueries({ queryKey: ['transactions'] })
-      queryClient.invalidateQueries({ queryKey: ['customers'] })
-      queryClient.invalidateQueries({ queryKey: ['inventory'] })
+  // 필터링된 거래만 삭제
+  const handleDeleteFilteredTransactions = async () => {
+    if (!filteredTransactions || filteredTransactions.length === 0) {
+      alert('삭제할 거래가 없습니다.')
+      return
     }
+
+    const confirmation = window.confirm(
+      `현재 필터링된 ${filteredTransactions.length}개의 거래를 삭제하시겠습니까?\n\n` +
+      '연관된 재고 이력도 함께 처리됩니다.\n' +
+      '이 작업은 되돌릴 수 없습니다.'
+    )
+
+    if (!confirmation) return
+
+    let deletedCount = 0
+    let failedCount = 0
+
+    for (const tx of filteredTransactions) {
+      if (tx.id) {
+        try {
+          await transactionAPI.delete(tx.id)
+          deletedCount++
+        } catch (error) {
+          console.error(`거래 #${tx.id} 삭제 실패:`, error)
+          failedCount++
+        }
+      }
+    }
+
+    if (failedCount > 0) {
+      alert(
+        `⚠️ 일부 거래 삭제 실패\n\n` +
+        `성공: ${deletedCount}개\n` +
+        `실패: ${failedCount}개`
+      )
+    } else {
+      alert(`✅ ${deletedCount}개의 거래가 삭제되었습니다.`)
+    }
+
+    queryClient.invalidateQueries({ queryKey: ['transactions'] })
+    queryClient.invalidateQueries({ queryKey: ['customers'] })
+    queryClient.invalidateQueries({ queryKey: ['inventory'] })
   }
 
   const handlePrintInvoice = (transaction: TransactionWithItems) => {
@@ -264,10 +300,10 @@ export default function Transactions() {
           <div className="mt-4 sm:mt-0 sm:ml-16 sm:flex-none flex gap-2">
             <button
               type="button"
-              onClick={handleDeleteAllTransactions}
+              onClick={handleDeleteFilteredTransactions}
               className="inline-flex items-center px-4 py-2 border border-transparent shadow-sm text-sm font-medium rounded-md text-white bg-red-600 hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500"
             >
-              🗑️ 전체 삭제
+              🗑️ 필터링된 항목 삭제 ({filteredTransactions?.length || 0})
             </button>
             <button
               type="button"
