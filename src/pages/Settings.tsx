@@ -52,15 +52,32 @@ export default function Settings() {
     backupFiles: BackupFileInfo[]
     message: string
     messageType: 'success' | 'error' | 'info' | null
-  }>({
-    isBackingUp: false,
-    isRestoring: false,
-    isLoadingFiles: false,
-    autoBackupEnabled: isAutoBackupEnabled(),
-    settings: getBackupSettings(),
-    backupFiles: [],
-    message: '',
-    messageType: null
+  }>(() => {
+    // 🔥 안전하게 초기화
+    try {
+      return {
+        isBackingUp: false,
+        isRestoring: false,
+        isLoadingFiles: false,
+        autoBackupEnabled: isAutoBackupEnabled(),
+        settings: getBackupSettings(),
+        backupFiles: [],
+        message: '',
+        messageType: null
+      }
+    } catch (error) {
+      console.error('백업 상태 초기화 실패:', error)
+      return {
+        isBackingUp: false,
+        isRestoring: false,
+        isLoadingFiles: false,
+        autoBackupEnabled: true,
+        settings: { enabled: true, backupPath: '' },
+        backupFiles: [],
+        message: '',
+        messageType: null
+      }
+    }
   })
 
   // 데이터 쿼리들
@@ -190,6 +207,9 @@ export default function Settings() {
       }
 
       restoreBackupData(result.data)
+      
+      // 🔄 React Query 캠시 완전 초기화
+      queryClient.clear()
       
       showMessage(
         `백업 복원이 완료되었습니다. (${result.data.metadata.totalRecords}개 레코드)`,

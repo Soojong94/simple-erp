@@ -280,7 +280,17 @@ export async function deleteAccount(password: string): Promise<{
   
   console.log(`🗑️ 계정 및 데이터 삭제 시작: ${user.display_name} (회사 ID: ${user.company_id})`)
   
-  // 4. 회사 데이터 삭제 (회사별 localStorage 키)
+  // 4. 탈퇴 전 자동 백업
+  try {
+    console.log('💾 탈퇴 전 자동 백업 시작...')
+    const { exportBackup } = await import('../backup')
+    await exportBackup(false)
+    console.log('✅ 백업 완료')
+  } catch (backupError) {
+    console.warn('⚠️ 백업 실패 (계속 진행):', backupError)
+  }
+  
+  // 5. 회사 데이터 삭제 (회사별 localStorage 키)
   const companyId = user.company_id
   const dataKeys = [
     `simple-erp-c${companyId}-customers`,
@@ -297,13 +307,23 @@ export async function deleteAccount(password: string): Promise<{
   
   console.log(`📦 회사 데이터 삭제 완료 (회사 ID: ${companyId})`)
   
-  // 5. 사용자 삭제
+  // 5. 전역 companies 배열에서 회사 제거
+  try {
+    const companies = getFromStorage<any[]>('simple-erp-companies', [])
+    const updatedCompanies = companies.filter(c => c.id !== companyId)
+    setToStorage('simple-erp-companies', updatedCompanies)
+    console.log(`🗑️ 전역 companies 배열에서 회사 제거 완료`)
+  } catch (e) {
+    console.warn('전역 companies 제거 실패:', e)
+  }
+  
+  // 6. 사용자 삭제
   const updatedUsers = users.filter(u => u.id !== user.id)
   setToStorage(STORAGE_KEYS.USERS, updatedUsers)
   
   console.log(`✅ 계정 삭제 완료: ${user.display_name} (ID: ${user.id})`)
   
-  // 6. 로그아웃
+  // 7. 로그아웃
   logout()
   
   return { success: true }

@@ -3,10 +3,28 @@ import { getCurrentSession } from '../../auth'
 // 회사별 localStorage 키 생성
 export const getCompanyStorageKey = (entity: string): string => {
   const session = getCurrentSession()
-  if (!session) {
-    return `simple-erp-${entity}`
+  let companyId = session?.company_id
+  
+  // 세션이 없을 경우 localStorage에서 직접 세션 읽기
+  if (!companyId) {
+    try {
+      const sessionData = localStorage.getItem('simple-erp-current-session')
+      if (sessionData) {
+        const parsedSession = JSON.parse(sessionData)
+        companyId = parsedSession?.company_id
+        console.log('✅ localStorage에서 companyId 찾음:', companyId)
+      }
+    } catch (e) {
+      console.error('❌ localStorage에서 세션 읽기 실패:', e)
+    }
   }
-  return `simple-erp-c${session.company_id}-${entity}`
+  
+  // companyId가 없으면 에러 (기본값 사용 안 함)
+  if (!companyId) {
+    throw new Error('⚠️ 회사 ID를 확인할 수 없습니다. 다시 로그인해주세요.')
+  }
+  
+  return `simple-erp-c${companyId}-${entity}`
 }
 
 // localStorage 키 상수 - getter로 동적으로 회사별 분리

@@ -27,12 +27,12 @@ const loadTauriAPIs = async () => {
 }
 
 // 백업 데이터 타입 정의
+// ✅ 회사 중립적 백업: company와 companyId 제거
 export interface BackupData {
   customers: Customer[]
   products: Product[]
   transactions: TransactionWithItems[]
   customerProductPrices: CustomerProductPrice[]
-  company: Company | null
   nextIds: Record<string, number>
   metadata: {
     backupDate: string
@@ -57,27 +57,47 @@ export interface BackupSettings {
   backupPath: string
 }
 
-// localStorage 키 상수
+// 🔥 백업 설정은 전역 (회사 구분 없음)
+const GLOBAL_BACKUP_KEYS = {
+  LAST_BACKUP_DATE: 'simple-erp-last-backup-date',
+  AUTO_BACKUP_ENABLED: 'simple-erp-auto-backup-enabled',
+  BACKUP_SETTINGS: 'simple-erp-backup-settings'
+} as const
+
+// localStorage 키 상수 - 회사별 데이터용
 const getStorageKeys = () => {
-  const session = getCurrentSession()
-  let companyId = session?.company_id
+  // ✅ localStorage에서 직접 세션 읽기
+  let companyId: number | undefined
   
-  if (!companyId) {
-    console.warn('⚠️ getCurrentSession()에서 세션 없음 - localStorage 직접 확인')
-    // 세션이 없을 경우 localStorage에서 직접 세션 읽기
-    try {
-      const sessionData = localStorage.getItem('simple-erp-current-session')
-      if (sessionData) {
-        const parsedSession = JSON.parse(sessionData)
-        companyId = parsedSession?.company_id
+  try {
+    const sessionData = localStorage.getItem('simple-erp-current-session')
+    if (sessionData) {
+      const parsedSession = JSON.parse(sessionData)
+      companyId = parsedSession?.company_id
+      if (companyId) {
         console.log('✅ localStorage에서 companyId 찾음:', companyId)
       }
-    } catch (e) {
-      console.error('❌ localStorage 읽기 실패:', e)
+    }
+  } catch (e) {
+    console.error('❌ localStorage 읽기 실패:', e)
+  }
+  
+  // ✅ fallback: getCurrentSession() 시도
+  if (!companyId) {
+    const session = getCurrentSession()
+    companyId = session?.company_id
+    if (companyId) {
+      console.log('✅ getCurrentSession()에서 companyId 찾음:', companyId)
     }
   }
   
-  const finalCompanyId = companyId || 1  // 최종 기본값
+  // 🔥 중요: 기본값 사용 (에러를 던지지 않음)
+  const finalCompanyId = companyId || 1
+  
+  if (!companyId) {
+    console.warn('⚠️ companyId를 찾을 수 없어 기본값(1) 사용. 로그인 상태를 확인해주세요.')
+  }
+  
   console.log('📦 사용할 companyId:', finalCompanyId)
   
   return {
@@ -86,10 +106,7 @@ const getStorageKeys = () => {
     TRANSACTIONS: `simple-erp-c${finalCompanyId}-transactions`,
     CUSTOMER_PRODUCT_PRICES: `simple-erp-c${finalCompanyId}-customer-product-prices`,
     COMPANY: `simple-erp-c${finalCompanyId}-company`,
-    NEXT_IDS: `simple-erp-c${finalCompanyId}-next-ids`,
-    LAST_BACKUP_DATE: 'simple-erp-last-backup-date',
-    AUTO_BACKUP_ENABLED: 'simple-erp-auto-backup-enabled',
-    BACKUP_SETTINGS: 'simple-erp-backup-settings'
+    NEXT_IDS: `simple-erp-c${finalCompanyId}-next-ids`
   } as const
 }
 
@@ -117,16 +134,25 @@ const setToStorage = <T>(key: string, value: T): void => {
  * 백업 설정 관리
  */
 export const getBackupSettings = (): BackupSettings => {
-  const STORAGE_KEYS = getStorageKeys()
-  return getFromStorage(STORAGE_KEYS.BACKUP_SETTINGS, {
-    enabled: true,
-    backupPath: '' // 빈 값이면 미설정 상태
-  })
+  try {
+    // 🔥 전역 키 사용 (companyId 불필요)
+    return getFromStorage(GLOBAL_BACKUP_KEYS.BACKUP_SETTINGS, {
+      enabled: true,
+      backupPath: '' // 빈 값이면 미설정 상태
+    })
+  } catch (error) {
+    console.error('백업 설정 읽기 실패:', error)
+    return { enabled: true, backupPath: '' }
+  }
 }
 
 export const setBackupSettings = (settings: BackupSettings): void => {
-  const STORAGE_KEYS = getStorageKeys()
-  setToStorage(STORAGE_KEYS.BACKUP_SETTINGS, settings)
+  try {
+    // 🔥 전역 키 사용
+    setToStorage(GLOBAL_BACKUP_KEYS.BACKUP_SETTINGS, settings)
+  } catch (error) {
+    console.error('백업 설정 저장 실패:', error)
+  }
 }
 
 /**
@@ -165,45 +191,62 @@ export const selectBackupFolder = async (): Promise<string | null> => {
 
 /**
  * 모든 ERP 데이터를 수집하여 백업 데이터 객체 생성
+ * ✅ 회사 중립적 백업: 거래처, 상품, 거래 데이터만 백업
  */
 export const collectBackupData = (): BackupData => {
-  const STORAGE_KEYS = getStorageKeys()
-  const session = getCurrentSession()
-  
-  console.log('💾 백업 데이터 수집 시작...', {
-    companyId: session?.company_id,
-    keys: STORAGE_KEYS
-  })
-  
-  const customers = getFromStorage<Customer[]>(STORAGE_KEYS.CUSTOMERS, [])
-  const products = getFromStorage<Product[]>(STORAGE_KEYS.PRODUCTS, [])
-  const transactions = getFromStorage<TransactionWithItems[]>(STORAGE_KEYS.TRANSACTIONS, [])
-  const customerProductPrices = getFromStorage<CustomerProductPrice[]>(STORAGE_KEYS.CUSTOMER_PRODUCT_PRICES, [])
-  const company = getFromStorage<Company | null>(STORAGE_KEYS.COMPANY, null)
-  const nextIds = getFromStorage<Record<string, number>>(STORAGE_KEYS.NEXT_IDS, {})
+  try {
+    const STORAGE_KEYS = getStorageKeys()
+    const session = getCurrentSession()
+    
+    console.log('💾 백업 데이터 수집 시작...', {
+      companyId: session?.company_id,
+      keys: STORAGE_KEYS
+    })
+    
+    const customers = getFromStorage<Customer[]>(STORAGE_KEYS.CUSTOMERS, [])
+    const products = getFromStorage<Product[]>(STORAGE_KEYS.PRODUCTS, [])
+    const transactions = getFromStorage<TransactionWithItems[]>(STORAGE_KEYS.TRANSACTIONS, [])
+    const customerProductPrices = getFromStorage<CustomerProductPrice[]>(STORAGE_KEYS.CUSTOMER_PRODUCT_PRICES, [])
+    const nextIds = getFromStorage<Record<string, number>>(STORAGE_KEYS.NEXT_IDS, {})
 
-  const totalRecords = customers.length + products.length + transactions.length + customerProductPrices.length + (company ? 1 : 0)
+    const totalRecords = customers.length + products.length + transactions.length + customerProductPrices.length
 
-  console.log('✅ 백업 데이터 수집 완료:', {
-    customers: customers.length,
-    products: products.length,
-    transactions: transactions.length,
-    prices: customerProductPrices.length,
-    totalRecords
-  })
+    console.log('✅ 백업 데이터 수집 완료:', {
+      customers: customers.length,
+      products: products.length,
+      transactions: transactions.length,
+      prices: customerProductPrices.length,
+      totalRecords
+    })
 
-  return {
-    customers,
-    products,
-    transactions,
-    customerProductPrices,
-    company,
-    nextIds,
-    metadata: {
-      backupDate: new Date().toISOString(),
-      version: '1.0.0',
-      totalRecords,
-      appVersion: 'Simple ERP v1.0'
+    return {
+      customers,
+      products,
+      transactions,
+      customerProductPrices,
+      nextIds,
+      metadata: {
+        backupDate: new Date().toISOString(),
+        version: '1.0.0',
+        totalRecords,
+        appVersion: 'Simple ERP v1.0'
+      }
+    }
+  } catch (error) {
+    console.error('백업 데이터 수집 실패:', error)
+    // 긴급 상황: 빈 데이터로 백업 생성
+    return {
+      customers: [],
+      products: [],
+      transactions: [],
+      customerProductPrices: [],
+      nextIds: {},
+      metadata: {
+        backupDate: new Date().toISOString(),
+        version: '1.0.0',
+        totalRecords: 0,
+        appVersion: 'Simple ERP v1.0'
+      }
     }
   }
 }
@@ -295,10 +338,9 @@ export const exportBackup = async (isAutoBackup: boolean = false): Promise<boole
     }
 
     if (success) {
-      // 백업 날짜 업데이트
-      const STORAGE_KEYS = getStorageKeys()
+      // 백업 날짜 업데이트 - 🔥 전역 키 사용
       const today = new Date().toISOString().split('T')[0]
-      localStorage.setItem(STORAGE_KEYS.LAST_BACKUP_DATE, today)
+      localStorage.setItem(GLOBAL_BACKUP_KEYS.LAST_BACKUP_DATE, today)
 
       console.log(`✅ 백업 완료: ${isAutoBackup ? '자동' : '수동'} 백업`, {
         environment: isTauriEnvironment() ? 'Tauri' : 'Browser',
@@ -406,7 +448,8 @@ export const openBackupFolderInExplorer = async (folderPath: string): Promise<bo
 }
 
 /**
- * 백업 파일 유효성 검사 (기존과 동일)
+ * 백업 파일 유효성 검사
+ * ✅ 회사 중립적 백업: company, companyId 검증 제거
  */
 export const validateBackupFile = (data: any): { isValid: boolean; error?: string } => {
   try {
@@ -414,6 +457,7 @@ export const validateBackupFile = (data: any): { isValid: boolean; error?: strin
       return { isValid: false, error: '유효하지 않은 백업 파일 형식입니다.' }
     }
 
+    // ✅ 필수 필드에서 company 제거
     const requiredFields = ['customers', 'products', 'transactions', 'customerProductPrices', 'nextIds', 'metadata']
     for (const field of requiredFields) {
       if (!(field in data)) {
@@ -558,35 +602,59 @@ const migrateBackupData = (backupData: BackupData): BackupData => {
 }
 
 /**
- * localStorage에 백업 데이터 복원 (마이그레이션 추가)
+ * localStorage에 백업 데이터 복원
+ * ✅ 현재 로그인한 회사의 데이터로 복원 (회사 중립적)
  */
 export const restoreBackupData = (backupData: BackupData): void => {
   try {
+    // ✅ 현재 로그인한 회사의 스토리지 키 사용
     const STORAGE_KEYS = getStorageKeys()
     const session = getCurrentSession()
     
     console.log('🔄 백업 데이터 복원 시작...', {
-      companyId: session?.company_id,
-      keys: STORAGE_KEYS
+      targetCompanyId: session?.company_id,
+      targetUsername: session?.username,
+      keys: STORAGE_KEYS,
+      backupRecords: {
+        customers: backupData.customers.length,
+        products: backupData.products.length,
+        transactions: backupData.transactions.length
+      }
+    })
+    
+    // 복원 전 현재 데이터 확인
+    console.log('📊 복원 전 현재 데이터:', {
+      currentCustomers: getFromStorage(STORAGE_KEYS.CUSTOMERS, []).length,
+      currentProducts: getFromStorage(STORAGE_KEYS.PRODUCTS, []).length,
+      currentTransactions: getFromStorage(STORAGE_KEYS.TRANSACTIONS, []).length
     })
     
     // 스키마 마이그레이션 먼저 수행
     const migratedData = migrateBackupData(backupData)
     
+    // ✅ 거래처, 상품, 거래 데이터만 복원
     setToStorage(STORAGE_KEYS.CUSTOMERS, migratedData.customers)
     setToStorage(STORAGE_KEYS.PRODUCTS, migratedData.products)
     setToStorage(STORAGE_KEYS.TRANSACTIONS, migratedData.transactions)
     setToStorage(STORAGE_KEYS.CUSTOMER_PRODUCT_PRICES, migratedData.customerProductPrices)
-    setToStorage(STORAGE_KEYS.COMPANY, migratedData.company)
     setToStorage(STORAGE_KEYS.NEXT_IDS, migratedData.nextIds)
+    
+    // ❌ 회사 정보는 복원하지 않음 (현재 회사 정보 유지)
 
+    // 복원 후 확인
+    console.log('📊 복원 후 현재 데이터:', {
+      currentCustomers: getFromStorage(STORAGE_KEYS.CUSTOMERS, []).length,
+      currentProducts: getFromStorage(STORAGE_KEYS.PRODUCTS, []).length,
+      currentTransactions: getFromStorage(STORAGE_KEYS.TRANSACTIONS, []).length
+    })
+    
     console.log('✅ 백업 데이터 복원 완료:', {
       customers: migratedData.customers.length,
       products: migratedData.products.length,
       transactions: migratedData.transactions.length,
       customerProductPrices: migratedData.customerProductPrices.length,
-      company: migratedData.company ? 1 : 0,
-      backupDate: migratedData.metadata.backupDate
+      backupDate: migratedData.metadata.backupDate,
+      savedToKeys: STORAGE_KEYS
     })
   } catch (error) {
     console.error('데이터 복원 실패:', error)
@@ -598,18 +666,32 @@ export const restoreBackupData = (backupData: BackupData): void => {
  * 자동 백업 관련 함수들
  */
 export const isAutoBackupEnabled = (): boolean => {
-  const STORAGE_KEYS = getStorageKeys()
-  return getFromStorage(STORAGE_KEYS.AUTO_BACKUP_ENABLED, true)
+  try {
+    // 🔥 전역 키 사용 (companyId 불필요)
+    return getFromStorage(GLOBAL_BACKUP_KEYS.AUTO_BACKUP_ENABLED, true)
+  } catch (error) {
+    console.error('자동 백업 설정 읽기 실패:', error)
+    return true  // 기본값 반환
+  }
 }
 
 export const setAutoBackupEnabled = (enabled: boolean): void => {
-  const STORAGE_KEYS = getStorageKeys()
-  setToStorage(STORAGE_KEYS.AUTO_BACKUP_ENABLED, enabled)
+  try {
+    // 🔥 전역 키 사용
+    setToStorage(GLOBAL_BACKUP_KEYS.AUTO_BACKUP_ENABLED, enabled)
+  } catch (error) {
+    console.error('자동 백업 설정 저장 실패:', error)
+  }
 }
 
 export const getLastBackupDate = (): string | null => {
-  const STORAGE_KEYS = getStorageKeys()
-  return localStorage.getItem(STORAGE_KEYS.LAST_BACKUP_DATE)
+  try {
+    // 🔥 전역 키 사용
+    return localStorage.getItem(GLOBAL_BACKUP_KEYS.LAST_BACKUP_DATE)
+  } catch (error) {
+    console.error('마지막 백업 날짜 읽기 실패:', error)
+    return null
+  }
 }
 
 export const shouldBackupToday = (): boolean => {
