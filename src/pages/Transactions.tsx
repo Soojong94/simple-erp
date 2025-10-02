@@ -308,19 +308,6 @@ export default function Transactions() {
           </div>
         </div>
 
-        {/* 필터링된 항목 삭제 버튼 */}
-        {filteredTransactions && filteredTransactions.length > 0 && (
-          <div className="mt-6 flex justify-end">
-            <button
-              type="button"
-              onClick={handleDeleteFilteredTransactions}
-              className="inline-flex items-center px-4 py-2 border border-transparent shadow-sm text-sm font-medium rounded-md text-white bg-red-600 hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500"
-            >
-              🗑️ 필터링된 항목 삭제 ({filteredTransactions.length})
-            </button>
-          </div>
-        )}
-
         {/* 통계 카드 */}
         <div className="mt-6 grid grid-cols-1 gap-5 sm:grid-cols-4">
           <div className="bg-white overflow-hidden shadow rounded-lg">
@@ -614,6 +601,19 @@ export default function Transactions() {
             </div>
           )}
         </div>
+
+        {/* 필터링된 항목 삭제 버튼 */}
+        {filteredTransactions && filteredTransactions.length > 0 && (
+          <div className="mt-4 flex justify-end">
+            <button
+              type="button"
+              onClick={handleDeleteFilteredTransactions}
+              className="inline-flex items-center px-4 py-2 border border-transparent shadow-sm text-sm font-medium rounded-md text-white bg-red-600 hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500"
+            >
+              🗑️ 필터링된 항목 삭제 ({filteredTransactions.length})
+            </button>
+          </div>
+        )}
 
         {/* 확장형 테이블 */}
         <div className="mt-8 flow-root">
