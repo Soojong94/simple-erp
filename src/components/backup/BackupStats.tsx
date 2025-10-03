@@ -1,7 +1,33 @@
 import { collectBackupData } from '../../lib/backup'
 
 export default function BackupStats() {
-  const backupStats = collectBackupData()
+  // 세션이 없으면 백업 데이터 수집 실패할 수 있으므로 try-catch로 안전하게 처리
+  let backupStats
+  try {
+    backupStats = collectBackupData()
+  } catch (error) {
+    console.warn('⚠️ [BackupStats] 백업 통계 조회 실패 (세션 없음)', error)
+    // 세션이 없으면 빈 데이터로 표시
+    backupStats = {
+      customers: [],
+      products: [],
+      transactions: [],
+      customerProductPrices: [],
+      nextIds: {},
+      companyInfo: {
+        companyId: 0,
+        companyName: '로그인 필요',
+        backupDate: new Date().toISOString()
+      },
+      metadata: {
+        backupDate: new Date().toISOString(),
+        version: '1.0.0',
+        totalRecords: 0,
+        appVersion: 'Simple ERP v1.0',
+        sourceCompanyId: 0
+      }
+    }
+  }
 
   return (
     <div className="bg-gray-50 rounded-lg p-4 mb-6">

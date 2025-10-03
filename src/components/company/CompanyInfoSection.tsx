@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react'
 import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { companyAPI } from '../../lib/tauri'
 import { Company } from '../../types'
-import { getCurrentSession } from '../../lib/auth'
+import { getCurrentSession } from '../../lib/auth/index'
 
 interface CompanyInfoSectionProps {
   company: Company | undefined

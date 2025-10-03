@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react'
-import { getCurrentSession, logout, createDemoData, initializeCurrentCompanyData } from '../lib/auth'
+import { getCurrentSession, logout, createDemoData } from '../lib/auth/index'
+import { initializeCurrentCompanyData } from '../lib/tauri'
 import type { UserSession } from '../types'
 import LoginPage from '../pages/auth/LoginPage'
 import RegisterPage from '../pages/auth/RegisterPage'
@@ -38,6 +39,8 @@ export default function AuthWrapper({ children }: AuthWrapperProps) {
       queryClient.clear()
     }
     setSession(currentSession)
+    // 로그인 후 페이지 새로고침하여 세션 완전히 적용
+    window.location.reload()
   }
 
   const handleRegisterSuccess = () => {

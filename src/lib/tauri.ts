@@ -10,7 +10,7 @@
  * - 기타 API들...
  */
 
-import { getCurrentSession } from './auth'
+import { getCurrentSession } from './auth/index'
 import type { Company, CustomerProductPrice, TaxInvoice, ProductInventory, StockMovement, StockLot, InventoryStats, TransactionWithItems } from '../types'
 import { STORAGE_KEYS, getFromStorage, setToStorage, getNextId, delay, isTauri } from './api/helpers/storage'
 import { backupTrigger } from './api/helpers/backup'
@@ -25,13 +25,17 @@ export { transactionAPI, setInventoryAPI } from './api/transactionAPI'
 const initializeCompanyData = () => {
   const session = getCurrentSession()
   if (!session) return
-  
+
   // 회사 정보 초기화
   const existingCompany = getFromStorage<Company | null>(STORAGE_KEYS.COMPANY, null)
   if (!existingCompany) {
+    // 전역 companies 배열에서 회사 이름 찾기
+    const companies = getFromStorage<any[]>('simple-erp-companies', [])
+    const companyInfo = companies.find(c => c.id === session.company_id)
+
     const initialCompany: Company = {
       id: session.company_id,
-      name: `회사 ${session.company_id}`,
+      name: companyInfo?.name || `회사 ${session.company_id}`,
       business_number: '111-22-33333',
       ceo_name: session.display_name,
       address: '서울시 중구 세종대로 110',
@@ -43,9 +47,10 @@ const initializeCompanyData = () => {
       created_at: new Date().toISOString()
     }
     setToStorage(STORAGE_KEYS.COMPANY, initialCompany)
+    console.log(`✅ 회사 정보 초기화: ${initialCompany.name} (ID: ${session.company_id})`)
   }
 
-  // 다른 엔티티들은 빈 배열로 초기화
+  // 다른 엔티티들은 빈 배열로 초기화 (기존 데이터가 없을 때만)
   if (getFromStorage(STORAGE_KEYS.CUSTOMERS, []).length === 0) setToStorage(STORAGE_KEYS.CUSTOMERS, [])
   if (getFromStorage(STORAGE_KEYS.PRODUCTS, []).length === 0) setToStorage(STORAGE_KEYS.PRODUCTS, [])
   if (getFromStorage(STORAGE_KEYS.TRANSACTIONS, []).length === 0) setToStorage(STORAGE_KEYS.TRANSACTIONS, [])

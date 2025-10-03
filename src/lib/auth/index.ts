@@ -334,19 +334,29 @@ export async function deleteAccount(password: string): Promise<{
  */
 export function createDemoData(): void {
   const users = getFromStorage<User[]>(STORAGE_KEYS.USERS, [])
-  
-  if (users.length === 0) {
-    // 데모 회사 생성
-    const companies = [
-      { id: 1, name: '고기유통 주식회사', created_at: new Date().toISOString(), created_by: 'admin' },
-      { id: 2, name: '농협 축산물', created_at: new Date().toISOString(), created_by: 'demo' }
-    ]
+
+  // admin과 demo 계정이 없으면 복구
+  const hasAdmin = users.some(u => u.username === 'admin')
+  const hasDemo = users.some(u => u.username === 'demo')
+
+  if (!hasAdmin || !hasDemo) {
+    console.log('🔧 admin/demo 계정 복구 중...')
+
+    const companies = getFromStorage<any[]>(STORAGE_KEYS.COMPANIES, [])
+
+    // 회사 1, 2가 없으면 생성
+    if (!companies.some(c => c.id === 1)) {
+      companies.push({ id: 1, name: '고기유통 주식회사', created_at: new Date().toISOString(), created_by: 'admin' })
+    }
+    if (!companies.some(c => c.id === 2)) {
+      companies.push({ id: 2, name: '농협 축산물', created_at: new Date().toISOString(), created_by: 'demo' })
+    }
     setToStorage(STORAGE_KEYS.COMPANIES, companies)
-    
-    // 데모 사용자 생성
-    const demoUsers: User[] = [
-      {
-        id: 1,
+
+    // admin 계정 복구
+    if (!hasAdmin) {
+      users.push({
+        id: 1,  // 고정 ID
         username: 'admin',
         display_name: '관리자',
         email: 'admin@meat.co.kr',
@@ -355,9 +365,14 @@ export function createDemoData(): void {
         company_id: 1,
         is_active: true,
         created_at: new Date().toISOString()
-      },
-      {
-        id: 2,
+      })
+      console.log('✅ admin 계정 복구 완료')
+    }
+
+    // demo 계정 복구
+    if (!hasDemo) {
+      users.push({
+        id: 2,  // 고정 ID
         username: 'demo',
         display_name: '데모 사용자',
         email: 'demo@example.com',
@@ -366,21 +381,22 @@ export function createDemoData(): void {
         company_id: 2,
         is_active: true,
         created_at: new Date().toISOString()
-      }
-    ]
-    
-    setToStorage(STORAGE_KEYS.USERS, demoUsers)
-    
-    // ID 카운터 초기화
-    setToStorage('simple-erp-next-ids', {
-      user: 3,
-      company: 3,
-      customer: 1,
-      product: 1,
-      transaction: 1
-    })
-    
-    console.log('✅ 데모 데이터 생성 완료')
+      })
+      console.log('✅ demo 계정 복구 완료')
+    }
+
+    setToStorage(STORAGE_KEYS.USERS, users)
+
+    // user ID와 company ID 카운터를 3부터 시작하도록 설정
+    const nextIds = getFromStorage('simple-erp-next-ids', {})
+    if (!nextIds['user'] || nextIds['user'] < 3) {
+      nextIds['user'] = 3
+    }
+    if (!nextIds['company'] || nextIds['company'] < 3) {
+      nextIds['company'] = 3
+    }
+    setToStorage('simple-erp-next-ids', nextIds)
+
     console.log('로그인 정보: admin/1234 또는 demo/1234')
   }
 }

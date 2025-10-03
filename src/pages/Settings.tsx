@@ -186,44 +186,89 @@ export default function Settings() {
     setBackupStatus(prev => ({ ...prev, isRestoring: true }))
 
     try {
+      console.log('📍 [SETTINGS] 파일 복원 시작:', file.name)
+
       const result = await importBackup(file)
-      
+
       if (!result.success || !result.data) {
+        console.error('❌ [SETTINGS] 백업 파일 읽기 실패:', result.error)
         showMessage(result.error || '백업 파일을 읽을 수 없습니다.', 'error')
         return
       }
 
-      const confirmRestore = window.confirm(
-        `백업 파일을 복원하시겠습니까?\n\n` +
-        `백업 날짜: ${new Date(result.data.metadata.backupDate).toLocaleString('ko-KR')}\n` +
-        `총 레코드: ${result.data.metadata.totalRecords}개\n` +
-        `앱 버전: ${result.data.metadata.appVersion}\n\n` +
-        `⚠️ 현재 데이터가 모두 덮어씌워집니다!`
-      )
+      console.log('✅ [SETTINGS] 백업 파일 읽기 성공:', {
+        companyInfo: result.data.companyInfo,
+        metadata: result.data.metadata
+      })
+
+      // 🆕 현재 세션 조회
+      const { getCurrentSession } = await import('../lib/auth/index')
+      const session = getCurrentSession()
+
+      if (!session) {
+        console.error('❌ [SETTINGS] 세션이 없음')
+        showMessage('로그인 후 복원해주세요.', 'error')
+        return
+      }
+
+      // 🆕 회사 정보 비교
+      const isSameCompany = result.data.companyInfo.companyId === session.company_id
+
+      let confirmMessage = ''
+      if (isSameCompany) {
+        // 같은 회사: 안전한 복원
+        confirmMessage =
+          `✅ 같은 회사의 백업 파일입니다.\n\n` +
+          `백업 회사: ${result.data.companyInfo.companyName}\n` +
+          `백업 날짜: ${new Date(result.data.companyInfo.backupDate).toLocaleString('ko-KR')}\n` +
+          `총 레코드: ${result.data.metadata.totalRecords}개\n\n` +
+          `⚠️ 현재 데이터가 모두 삭제되고 백업 시점으로 복원됩니다.\n` +
+          `계속하시겠습니까?`
+      } else {
+        // 다른 회사: 경고 표시
+        confirmMessage =
+          `⚠️ 다른 회사의 백업 파일입니다!\n\n` +
+          `백업 회사: ${result.data.companyInfo.companyName} (ID: ${result.data.companyInfo.companyId})\n` +
+          `현재 회사: 회사 ID ${session.company_id}\n` +
+          `백업 날짜: ${new Date(result.data.companyInfo.backupDate).toLocaleString('ko-KR')}\n` +
+          `총 레코드: ${result.data.metadata.totalRecords}개\n\n` +
+          `🚨 현재 회사(${session.company_id})의 모든 데이터가 삭제되고\n` +
+          `   다른 회사(${result.data.companyInfo.companyId})의 데이터로 교체됩니다.\n\n` +
+          `정말로 복원하시겠습니까?`
+      }
+
+      console.log('💬 [SETTINGS] 복원 확인 메시지 표시')
+      const confirmRestore = window.confirm(confirmMessage)
 
       if (!confirmRestore) {
+        console.log('🚫 [SETTINGS] 사용자가 복원 취소')
         showMessage('복원이 취소되었습니다.', 'info')
         return
       }
 
+      console.log('🔄 [SETTINGS] restoreBackupData() 호출')
       restoreBackupData(result.data)
-      
-      // 🔄 React Query 캠시 완전 초기화
+      console.log('✅ [SETTINGS] restoreBackupData() 완료')
+
+      // 🔄 React Query 캐시 완전 초기화
+      console.log('🗑️ [SETTINGS] React Query 캐시 초기화')
       queryClient.clear()
-      
+
       showMessage(
         `백업 복원이 완료되었습니다. (${result.data.metadata.totalRecords}개 레코드)`,
         'success'
       )
 
       // 페이지 새로고침으로 모든 데이터 갱신
+      console.log('🔄 [SETTINGS] 1초 후 페이지 새로고침')
       setTimeout(() => {
+        console.log('🔄 [SETTINGS] 페이지 새로고침 실행')
         window.location.reload()
       }, 1000)
 
     } catch (error) {
-      console.error('Restore backup error:', error)
-      showMessage('복원 중 오류가 발생했습니다.', 'error')
+      console.error('❌ [SETTINGS] 복원 중 오류:', error)
+      showMessage(`복원 중 오류: ${error instanceof Error ? error.message : '알 수 없는 오류'}`, 'error')
     } finally {
       setBackupStatus(prev => ({ ...prev, isRestoring: false }))
       if (event.target) {

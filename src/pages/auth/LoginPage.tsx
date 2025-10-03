@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { login } from '../../lib/auth'
+import { login } from '../../lib/auth/index'
 import type { LoginCredentials } from '../../types'
 
 interface LoginPageProps {
@@ -41,11 +41,8 @@ export default function LoginPage({ onLoginSuccess, onShowRegister }: LoginPageP
       <div className="max-w-md w-full space-y-8">
         {/* 헤더 */}
         <div>
-          <div className="mx-auto h-12 w-12 flex items-center justify-center rounded-full bg-blue-100">
-            <span className="text-2xl">🥩</span>
-          </div>
-          <h2 className="mt-6 text-center text-3xl font-extrabold text-gray-900">
-            고기 유통업 ERP
+          <h2 className="text-center text-3xl font-extrabold text-gray-900">
+            Simple ERP
           </h2>
           <p className="mt-2 text-center text-sm text-gray-600">
             {showRegister ? '새 회사 계정 생성' : '로그인하여 시작하세요'}

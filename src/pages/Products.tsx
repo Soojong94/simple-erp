@@ -1,6 +1,7 @@
 import { useState, useMemo, useEffect } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { productAPI, transactionAPI } from '../lib/tauri'
+import { getCurrentSession } from '../lib/auth/index'
 import { formatCurrency } from '../lib/utils'
 import { useExpandableTable } from '../hooks/useExpandableTable'
 import { usePagination } from '../hooks/usePagination'
@@ -13,14 +14,15 @@ import type { Product } from '../types'
 
 export default function Products() {
   const queryClient = useQueryClient()
+  const session = getCurrentSession()
   const [isModalOpen, setIsModalOpen] = useState(false)
   const [editingProduct, setEditingProduct] = useState<Product | undefined>(undefined)
-  
+
   // 기본 필터
   const [filterCategory, setFilterCategory] = useState<string>('all')
   const [searchQuery, setSearchQuery] = useState('')
   const [activeOnly, setActiveOnly] = useState(true)
-  
+
   // 정렬 상태
   const [sortBy, setSortBy] = useState<'name' | 'category' | 'price' | 'date'>('name')
   const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('asc')
@@ -29,13 +31,13 @@ export default function Products() {
   const { toggleRow, isExpanded } = useExpandableTable()
 
   const { data: products, isLoading, error } = useQuery({
-    queryKey: ['products'],
+    queryKey: ['products', session?.company_id],
     queryFn: () => productAPI.getAll(false) // 모든 상품 (비활성 포함)
   })
   
   // 거래 내역 조회 (사용 빈도 계산용)
   const { data: transactions } = useQuery({
-    queryKey: ['transactions'],
+    queryKey: ['transactions', session?.company_id],
     queryFn: () => transactionAPI.getAll()
   })
 

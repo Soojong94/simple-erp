@@ -1,6 +1,7 @@
 import { useState, useMemo, useEffect } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { customerAPI } from '../lib/tauri'
+import { getCurrentSession } from '../lib/auth/index'
 import { useExpandableTable } from '../hooks/useExpandableTable'
 import { usePagination } from '../hooks/usePagination'
 import CustomerModal from '../components/modals/CustomerModal'
@@ -12,11 +13,12 @@ import type { Customer } from '../types'
 
 export default function Customers() {
   const queryClient = useQueryClient()
+  const session = getCurrentSession()
   const [isModalOpen, setIsModalOpen] = useState(false)
   const [editingCustomer, setEditingCustomer] = useState<Customer | undefined>(undefined)
   const [filterType, setFilterType] = useState<'all' | 'customer' | 'supplier'>('all')
   const [searchQuery, setSearchQuery] = useState('')
-  
+
   // 정렬 상태
   const [sortBy, setSortBy] = useState<'name' | 'date' | 'type'>('name')
   const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('asc')
@@ -25,7 +27,7 @@ export default function Customers() {
   const { toggleRow, isExpanded } = useExpandableTable()
 
   const { data: customers, isLoading, error } = useQuery({
-    queryKey: ['customers'],
+    queryKey: ['customers', session?.company_id],
     queryFn: () => customerAPI.getAll()
   })
 

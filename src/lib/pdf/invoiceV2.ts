@@ -225,7 +225,7 @@ function createInvoiceHTMLV2(
             </tr>
             <tr>
               <td style="padding: 3px 4px; font-weight: 700;">사업자</td>
-              <td style="padding: 3px 4px; font-weight: 600;">${company.representative || ''}</td>
+              <td style="padding: 3px 4px; font-weight: 600;">${company.ceo_name || ''}</td>
             </tr>
           </table>
         </div>

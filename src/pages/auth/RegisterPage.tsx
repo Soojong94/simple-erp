@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { register } from '../../lib/auth'
+import { register } from '../../lib/auth/index'
 import type { RegisterData } from '../../types'
 
 interface RegisterPageProps {
