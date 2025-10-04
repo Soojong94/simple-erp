@@ -70,30 +70,25 @@ export const productAPI = {
       if (index === -1) throw new Error('Product not found')
       
       // 🔧 상품 삭제 시 관련 재고 데이터도 함께 삭제
-      console.log(`🗑️ 상품 #${id} 삭제 중... 관련 재고 데이터도 정리합니다.`)
       
       // 1. 재고 현황 삭제
       const inventory = getFromStorage<ProductInventory[]>(STORAGE_KEYS.PRODUCT_INVENTORY, [])
       const filteredInventory = inventory.filter(inv => inv.product_id !== id)
       setToStorage(STORAGE_KEYS.PRODUCT_INVENTORY, filteredInventory)
-      console.log(`  ✓ 재고 현황 데이터 삭제됨`)
       
       // 2. 재고 이동 이력 삭제
       const movements = getFromStorage<StockMovement[]>(STORAGE_KEYS.STOCK_MOVEMENTS, [])
       const filteredMovements = movements.filter(m => m.product_id !== id)
       setToStorage(STORAGE_KEYS.STOCK_MOVEMENTS, filteredMovements)
-      console.log(`  ✓ 재고 이동 이력 삭제됨`)
       
       // 3. 로트 삭제
       const lots = getFromStorage<StockLot[]>(STORAGE_KEYS.STOCK_LOTS, [])
       const filteredLots = lots.filter(lot => lot.product_id !== id)
       setToStorage(STORAGE_KEYS.STOCK_LOTS, filteredLots)
-      console.log(`  ✓ 로트 데이터 삭제됨`)
       
       // 4. 상품 삭제
       products.splice(index, 1)
       setToStorage(STORAGE_KEYS.PRODUCTS, products)
-      console.log(`✅ 상품 #${id} 및 관련 재고 데이터 모두 삭제 완료`)
       
       backupTrigger.trigger() // 자동 백업 트리거
     }

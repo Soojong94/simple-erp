@@ -34,6 +34,7 @@ export default function CompanyInfoSection({
     phone: '',
     email: '',
     business_type: '',
+    business_item: '',  // 🆕 종목 추가
     tax_invoice_api_key: '',
     tax_invoice_cert_file: '',
     default_invoice_memo: ''  // 🆕 기본 메모 추가
@@ -59,6 +60,7 @@ export default function CompanyInfoSection({
         phone: company.phone || '',
         email: company.email || '',
         business_type: company.business_type || '',
+        business_item: company.business_item || '',  // 🆕 종목 추가
         tax_invoice_api_key: company.tax_invoice_api_key || '',
         tax_invoice_cert_file: company.tax_invoice_cert_file || '',
         default_invoice_memo: company.default_invoice_memo || ''  // 🆕 기본 메모 추가
@@ -119,11 +121,11 @@ export default function CompanyInfoSection({
       const base64 = event.target?.result as string
       setStampImage(base64)
       setStampPreview(base64)
-      
+
       // localStorage에 회사별로 저장
       const stampKey = getStampStorageKey()
       localStorage.setItem(stampKey, base64)
-      
+
       onMessage('도장 이미지가 저장되었습니다. 거래명세서에 자동으로 표시됩니다.', 'success')
     }
     reader.readAsDataURL(file)
@@ -150,6 +152,7 @@ export default function CompanyInfoSection({
         phone: company.phone || '',
         email: company.email || '',
         business_type: company.business_type || '',
+        business_item: company.business_item || '',  // 🆕 종목 추가
         tax_invoice_api_key: company.tax_invoice_api_key || '',
         tax_invoice_cert_file: company.tax_invoice_cert_file || '',
         default_invoice_memo: company.default_invoice_memo || ''  // 🆕 기본 메모 추가
@@ -263,7 +266,7 @@ export default function CompanyInfoSection({
               </div>
               
               <div>
-                <label className="block text-sm font-medium text-gray-700">업종</label>
+                <label className="block text-sm font-medium text-gray-700">업태</label>
                 <input
                   type="text"
                   name="business_type"
@@ -271,10 +274,23 @@ export default function CompanyInfoSection({
                   onChange={handleChange}
                   disabled={!isEditing}
                   className={`mt-1 block w-full border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500 sm:text-sm ${!isEditing ? 'bg-gray-50' : ''}`}
-                  placeholder="제조업, 도소매업 등"
+                  placeholder="예: 도매 및 소매업"
                 />
               </div>
-              
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700">종목</label>
+                <input
+                  type="text"
+                  name="business_item"
+                  value={formData.business_item}
+                  onChange={handleChange}
+                  disabled={!isEditing}
+                  className={`mt-1 block w-full border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500 sm:text-sm ${!isEditing ? 'bg-gray-50' : ''}`}
+                  placeholder="예: 육류 도매"
+                />
+              </div>
+
               {/* 🆕 거래명세서 기본 메모 */}
               <div className="sm:col-span-2">
                 <label className="block text-sm font-medium text-gray-700">
@@ -327,12 +343,13 @@ export default function CompanyInfoSection({
               {/* 미리보기 */}
               <div className="flex-shrink-0">
                 {stampPreview ? (
-                  <div className="relative">
-                    <img 
-                      src={stampPreview} 
-                      alt="도장 미리보기" 
-                      className="w-20 h-20 rounded-full object-cover border-2 border-gray-300"
+                  <div className="relative w-20 h-20 flex flex-col items-center justify-center border-2 border-gray-300 rounded-lg bg-white">
+                    <img
+                      src={stampPreview}
+                      alt="도장 미리보기"
+                      className="w-12 h-12 object-contain"
                     />
+                    <span className="text-xs text-gray-500 mt-1">(인)</span>
                     <button
                       onClick={handleStampRemove}
                       className="absolute -top-2 -right-2 bg-red-500 text-white rounded-full w-6 h-6 flex items-center justify-center hover:bg-red-600"
@@ -342,8 +359,9 @@ export default function CompanyInfoSection({
                     </button>
                   </div>
                 ) : (
-                  <div className="w-20 h-20 rounded-full bg-gray-200 flex items-center justify-center text-gray-400">
-                    <span className="text-3xl">📷</span>
+                  <div className="w-20 h-20 rounded-lg bg-gray-200 flex flex-col items-center justify-center text-gray-400 border-2 border-gray-300">
+                    <span className="text-2xl">📷</span>
+                    <span className="text-xs mt-1">(인)</span>
                   </div>
                 )}
               </div>

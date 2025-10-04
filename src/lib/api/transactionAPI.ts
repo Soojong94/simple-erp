@@ -66,7 +66,8 @@ export const transactionAPI = {
         tax_amount: transactionData.tax_amount || 0,
         notes: transactionData.notes || '',
         created_at: new Date().toISOString(),
-        items: transactionData.items || []
+        items: transactionData.items || [],
+        reference_payment_id: transactionData.reference_payment_id  // 🎯 수금 거래 참조 ID 저장
       }
       
       transactions.push(newTransaction)
@@ -83,7 +84,6 @@ export const transactionAPI = {
           transactions[paymentIndex].displayed_in_transaction_id = newTransaction.id
           setToStorage(STORAGE_KEYS.TRANSACTIONS, transactions)
           
-          console.log(`✅ 수금 거래 #${transactionData.reference_payment_id}를 거래 #${newTransaction.id}에 연결`)
         }
       }
       
@@ -93,68 +93,49 @@ export const transactionAPI = {
       }
       
       // 🆕 미수금 처리
-      console.log(`🔍 미수금 체크: transaction_type=${transactionData.transaction_type}, customer=`, customer)
       
       // 매출 거래: 미수금 증가
       if (transactionData.transaction_type === 'sales' && customer) {
-        console.log(`💰 미수금 증가 조건 충족 - 실행 중...`)
         
         const customerIndex = customers.findIndex(c => c.id === transactionData.customer_id)
-        console.log(`  거래처 인덱스: ${customerIndex}`)
         
         if (customerIndex >= 0) {
           const currentBalance = Number(customers[customerIndex].outstanding_balance) || 0
           const newBalance = currentBalance + Number(newTransaction.total_amount)
           
-          console.log(`  기존 미수금: ${currentBalance}원`)
-          console.log(`  거래 금액: ${newTransaction.total_amount}원`)
-          console.log(`  새 미수금: ${newBalance}원`)
           
           customers[customerIndex].outstanding_balance = newBalance
           setToStorage(STORAGE_KEYS.CUSTOMERS, customers)
           
-          console.log(`✅ 미수금 자동 증가: ${customer.name} +${newTransaction.total_amount}원 (${currentBalance}원 → ${newBalance}원)`)
-          console.log(`  localStorage 저장 완료:`, STORAGE_KEYS.CUSTOMERS)
         } else {
           console.error(`❌ 거래처를 찾을 수 없음: customer_id=${transactionData.customer_id}`)
         }
       }
       // 🆕 수금 처리: 미수금 감소
       else if (transactionData.transaction_type === 'payment' && customer) {
-        console.log(`💵 수금 처리 조건 충족 - 실행 중...`)
         
         const customerIndex = customers.findIndex(c => c.id === transactionData.customer_id)
-        console.log(`  거래처 인덱스: ${customerIndex}`)
         
         if (customerIndex >= 0) {
           const currentBalance = Number(customers[customerIndex].outstanding_balance) || 0
           const paymentAmount = Number(newTransaction.total_amount)
           const newBalance = Math.max(0, currentBalance - paymentAmount)  // 음수 방지
           
-          console.log(`  기존 미수금: ${currentBalance}원`)
-          console.log(`  수금 금액: ${paymentAmount}원`)
-          console.log(`  새 미수금: ${newBalance}원`)
           
           customers[customerIndex].outstanding_balance = newBalance
           setToStorage(STORAGE_KEYS.CUSTOMERS, customers)
           
-          console.log(`✅ 미수금 자동 감소: ${customer.name} -${paymentAmount}원 (${currentBalance}원 → ${newBalance}원)`)
-          console.log(`  localStorage 저장 완료:`, STORAGE_KEYS.CUSTOMERS)
         } else {
           console.error(`❌ 거래처를 찾을 수 없음: customer_id=${transactionData.customer_id}`)
         }
       } else {
-        console.log(`⚠️ 미수금 처리 조건 불충족`)
         if (transactionData.transaction_type !== 'sales' && transactionData.transaction_type !== 'payment') {
-          console.log(`  → 거래 타입: ${transactionData.transaction_type}`)
         }
         if (!customer) {
-          console.log(`  → 거래처 객체가 없음`)
         }
       }
       
       backupTrigger.trigger() // 자동 백업 트리거
-      console.log(`✅ 거래 #${newTransaction.id} 생성 완료 - 재고 자동 처리됨`)
       return newTransaction
     }
   },
@@ -183,20 +164,11 @@ export const transactionAPI = {
           const oldAmount = Number(oldTransaction.total_amount) || 0
           const newAmount = Number(transactionData.total_amount) || 0
           const amountDiff = newAmount - oldAmount
-          
-          console.log(`📊 미수금 조정 계산:`, {
-            customer: customers[customerIndex].name,
-            currentBalance,
-            oldAmount,
-            newAmount,
-            amountDiff
-          })
-          
+
           // 차액만큼 미수금 조정
           customers[customerIndex].outstanding_balance = currentBalance + amountDiff
           setToStorage(STORAGE_KEYS.CUSTOMERS, customers)
-          
-          console.log(`✅ 미수금 자동 조정: ${customers[customerIndex].name} ${amountDiff >= 0 ? '+' : ''}${amountDiff}원 (${currentBalance}원 → ${currentBalance + amountDiff}원)`)
+
         }
       }
       
@@ -211,7 +183,6 @@ export const transactionAPI = {
       }
       
       backupTrigger.trigger() // 자동 백업 트리거
-      console.log(`✅ 거래 #${id} 수정 완료 - 재고 재계산됨`)
       return updatedTransaction
     }
   },
@@ -243,7 +214,6 @@ export const transactionAPI = {
             const newBalance = Math.max(0, currentBalance - Number(transactionToDelete.total_amount))
             customers[customerIndex].outstanding_balance = newBalance
             
-            console.log(`💰 미수금 복원 (매출 삭제): ${customer.name} -${transactionToDelete.total_amount}원 (${currentBalance}원 → ${newBalance}원)`)
           }
           
           // 수금 거래 삭제 → 미수금 증가 (복원)
@@ -251,11 +221,9 @@ export const transactionAPI = {
             const newBalance = currentBalance + Number(transactionToDelete.total_amount)
             customers[customerIndex].outstanding_balance = newBalance
             
-            console.log(`💰 미수금 복원 (수금 삭제): ${customer.name} +${transactionToDelete.total_amount}원 (${currentBalance}원 → ${newBalance}원)`)
           }
           
           setToStorage(STORAGE_KEYS.CUSTOMERS, customers)
-          console.log(`✅ 미수금 복원 완료`)
         }
       }
       
@@ -267,7 +235,6 @@ export const transactionAPI = {
       setToStorage(STORAGE_KEYS.TRANSACTIONS, transactions)
       backupTrigger.trigger() // 자동 백업 트리거
       
-      console.log(`✅ 거래 #${id} 삭제 완료 - 재고 및 미수금 복원됨`)
     }
   },
   

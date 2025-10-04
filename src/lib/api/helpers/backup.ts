@@ -17,7 +17,6 @@ const triggerAutoBackup = debounce(async () => {
   
   try {
     await exportBackup(true) // 자동 백업 플래그
-    console.log('💾 자동 백업 완료')
   } catch (error) {
     console.error('자동 백업 실패:', error)
   }

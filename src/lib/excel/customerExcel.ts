@@ -49,6 +49,8 @@ export function generateCustomerExcel(
       사업자번호: c.business_number || '-',
       대표자: c.ceo_name || '-',
       거래처구분: c.type === 'customer' ? '고객' : '공급업체',
+      업태: c.business_type || '-',
+      종목: c.business_item || '-',
       전화: c.phone || '-',
       이메일: c.email || '-',
       주소: c.address || '-',
@@ -58,7 +60,7 @@ export function generateCustomerExcel(
       등록일: c.created_at ? new Date(c.created_at).toLocaleDateString('ko-KR') : '-',
       수정일: c.updated_at ? new Date(c.updated_at).toLocaleDateString('ko-KR') : '-'
     })),
-    headers: ['거래처명', '사업자번호', '대표자', '거래처구분', '전화', '이메일', '주소', '담당자', '미수금', '활성상태', '등록일', '수정일']
+    headers: ['거래처명', '사업자번호', '대표자', '거래처구분', '업태', '종목', '전화', '이메일', '주소', '담당자', '미수금', '활성상태', '등록일', '수정일']
   }
   
   // 4. 시트 3: 고객 목록
@@ -70,6 +72,8 @@ export function generateCustomerExcel(
         거래처명: c.name,
         사업자번호: c.business_number || '-',
         대표자: c.ceo_name || '-',
+        업태: c.business_type || '-',
+        종목: c.business_item || '-',
         전화: c.phone || '-',
         이메일: c.email || '-',
         주소: c.address || '-',
@@ -78,7 +82,7 @@ export function generateCustomerExcel(
         활성상태: c.is_active ? '활성' : '비활성',
         등록일: c.created_at ? new Date(c.created_at).toLocaleDateString('ko-KR') : '-'
       })),
-    headers: ['거래처명', '사업자번호', '대표자', '전화', '이메일', '주소', '담당자', '미수금', '활성상태', '등록일']
+    headers: ['거래처명', '사업자번호', '대표자', '업태', '종목', '전화', '이메일', '주소', '담당자', '미수금', '활성상태', '등록일']
   }
   
   // 5. 시트 4: 공급업체 목록
@@ -90,6 +94,8 @@ export function generateCustomerExcel(
         거래처명: c.name,
         사업자번호: c.business_number || '-',
         대표자: c.ceo_name || '-',
+        업태: c.business_type || '-',
+        종목: c.business_item || '-',
         전화: c.phone || '-',
         이메일: c.email || '-',
         주소: c.address || '-',
@@ -97,7 +103,7 @@ export function generateCustomerExcel(
         활성상태: c.is_active ? '활성' : '비활성',
         등록일: c.created_at ? new Date(c.created_at).toLocaleDateString('ko-KR') : '-'
       })),
-    headers: ['거래처명', '사업자번호', '대표자', '전화', '이메일', '주소', '담당자', '활성상태', '등록일']
+    headers: ['거래처명', '사업자번호', '대표자', '업태', '종목', '전화', '이메일', '주소', '담당자', '활성상태', '등록일']
   }
   
   // 6. 파일명 생성

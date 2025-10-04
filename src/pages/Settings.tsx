@@ -186,7 +186,6 @@ export default function Settings() {
     setBackupStatus(prev => ({ ...prev, isRestoring: true }))
 
     try {
-      console.log('📍 [SETTINGS] 파일 복원 시작:', file.name)
 
       const result = await importBackup(file)
 
@@ -195,11 +194,6 @@ export default function Settings() {
         showMessage(result.error || '백업 파일을 읽을 수 없습니다.', 'error')
         return
       }
-
-      console.log('✅ [SETTINGS] 백업 파일 읽기 성공:', {
-        companyInfo: result.data.companyInfo,
-        metadata: result.data.metadata
-      })
 
       // 🆕 현재 세션 조회
       const { getCurrentSession } = await import('../lib/auth/index')
@@ -237,21 +231,16 @@ export default function Settings() {
           `정말로 복원하시겠습니까?`
       }
 
-      console.log('💬 [SETTINGS] 복원 확인 메시지 표시')
       const confirmRestore = window.confirm(confirmMessage)
 
       if (!confirmRestore) {
-        console.log('🚫 [SETTINGS] 사용자가 복원 취소')
         showMessage('복원이 취소되었습니다.', 'info')
         return
       }
 
-      console.log('🔄 [SETTINGS] restoreBackupData() 호출')
       restoreBackupData(result.data)
-      console.log('✅ [SETTINGS] restoreBackupData() 완료')
 
       // 🔄 React Query 캐시 완전 초기화
-      console.log('🗑️ [SETTINGS] React Query 캐시 초기화')
       queryClient.clear()
 
       showMessage(
@@ -260,9 +249,7 @@ export default function Settings() {
       )
 
       // 페이지 새로고침으로 모든 데이터 갱신
-      console.log('🔄 [SETTINGS] 1초 후 페이지 새로고침')
       setTimeout(() => {
-        console.log('🔄 [SETTINGS] 페이지 새로고침 실행')
         window.location.reload()
       }, 1000)
 
@@ -368,25 +355,66 @@ export default function Settings() {
     }
   }
 
+  // localStorage 전체 초기화 핸들러
+  const handleClearAllData = async () => {
+    const confirmed = window.confirm(
+      '⚠️ 정말로 모든 데이터를 초기화하시겠습니까?\n\n' +
+      '- 모든 사용자 계정이 삭제됩니다\n' +
+      '- 모든 회사 데이터가 삭제됩니다\n' +
+      '- 초기화 전 자동으로 백업이 생성됩니다\n' +
+      '- admin과 demo 계정이 자동으로 재생성됩니다\n\n' +
+      '이 작업은 되돌릴 수 없습니다.'
+    )
+
+    if (!confirmed) return
+
+    try {
+
+      // 1. 백업 생성
+      setBackupStatus(prev => ({ ...prev, isBackingUp: true }))
+      showMessage('💾 백업 생성 중...', 'info')
+
+      try {
+        await exportBackup(false)
+      } catch (backupError) {
+        console.warn('⚠️ 백업 실패 (계속 진행):', backupError)
+      }
+
+      // 2. localStorage 전체 클리어
+      localStorage.clear()
+
+      // 3. 성공 메시지 및 새로고침
+      alert('✅ 전체 초기화가 완료되었습니다.\n\n데모 계정(admin/demo)이 자동으로 생성됩니다.')
+
+      // 새로고침 (데모 계정 자동 생성됨)
+      window.location.reload()
+
+    } catch (error) {
+      console.error('❌ 전체 초기화 실패:', error)
+      alert('❌ 전체 초기화 중 오류가 발생했습니다.')
+    } finally {
+      setBackupStatus(prev => ({ ...prev, isBackingUp: false }))
+    }
+  }
+
   // 회원 탈퇴 핸들러
   const handleDeleteAccount = async () => {
     // 세션 확인 먼저
     const currentSession = localStorage.getItem('simple-erp-current-session')
-    console.log('🔍 탈퇴 시도 - 현재 세션:', currentSession)
-    
+
     if (!currentSession) {
       alert('❌ 세션이 만료되었습니다. 다시 로그인해주세요.')
       window.location.reload()
       return
     }
-    
+
     const password = window.prompt('회원 탈퇴를 위해 비밀번호를 입력하세요:')
-    
+
     if (!password) return
 
     try {
       const result = await deleteAccount(password)
-      
+
       if (result.success) {
         alert('✅ 계정이 탈퇴되었습니다. 로그인 페이지로 이동합니다.')
         window.location.reload()
@@ -529,6 +557,36 @@ export default function Settings() {
 
         {activeTab === 'account' && (
           <div className="space-y-6">
+            {/* localStorage 전체 초기화 */}
+            <div className="bg-white shadow rounded-lg p-6">
+              <div className="border-b border-gray-200 pb-4 mb-4">
+                <h3 className="text-lg font-semibold text-orange-600 mb-2 flex items-center">
+                  <span className="mr-2">🔄</span>
+                  전체 데이터 초기화
+                </h3>
+                <p className="text-sm text-gray-600 mb-3">
+                  모든 계정과 데이터를 초기화합니다. 초기화 후 데모 계정(admin/demo)이 자동 생성됩니다.
+                </p>
+                <div className="bg-orange-50 border-l-4 border-orange-500 p-3">
+                  <p className="text-sm text-orange-800 font-medium">
+                    ⚠️ <strong>주의: 모든 사용자 계정과 회사 데이터가 삭제됩니다</strong>
+                  </p>
+                  <ul className="text-xs text-orange-700 mt-2 ml-4 list-disc">
+                    <li>모든 사용자 계정 삭제</li>
+                    <li>모든 회사 데이터 삭제</li>
+                    <li>백업 설정 초기화</li>
+                    <li>초기화 전 자동 백업 생성</li>
+                  </ul>
+                </div>
+              </div>
+              <button
+                onClick={handleClearAllData}
+                className="bg-orange-600 hover:bg-orange-700 text-white px-4 py-2 rounded-lg font-medium transition-colors"
+              >
+                전체 초기화
+              </button>
+            </div>
+
             {/* 회원 탈퇴 */}
             <div className="bg-white shadow rounded-lg p-6">
               <div className="border-b border-gray-200 pb-4 mb-4">
@@ -537,53 +595,15 @@ export default function Settings() {
                   계정 탈퇴
                 </h3>
                 <p className="text-sm text-gray-600 mb-3">
-                  계정을 탈퇴하면 더 이상 로그인할 수 없습니다.
+                  계정 탈퇴 시 모든 데이터가 삭제됩니다. 탈퇴 전 자동으로 백업이 생성됩니다.
                 </p>
-                <div className="bg-red-50 border-l-4 border-red-500 p-3 mb-4">
-                  <p className="text-sm text-red-800 font-medium">
-                    ⚠️ <strong>모든 회사 데이터가 영구적으로 삭제됩니다</strong>
-                  </p>
-                  <ul className="text-xs text-red-700 mt-2 ml-4 list-disc">
-                    <li>모든 거래처 삭제</li>
-                    <li>모든 상품 삭제</li>
-                    <li>모든 거래 내역 삭제</li>
-                    <li>회사 정보 삭제</li>
-                  </ul>
-                  <p className="text-xs text-red-700 mt-2">
-                    ※ 이 작업은 되돌릴 수 없습니다. 탈퇴 전 백업을 권장합니다.
-                  </p>
-                </div>
               </div>
               <button
                 onClick={handleDeleteAccount}
                 className="bg-red-600 hover:bg-red-700 text-white px-4 py-2 rounded-lg font-medium transition-colors"
               >
-                계정 탈퇴 (모든 데이터 삭제)
+                계정 탈퇴
               </button>
-            </div>
-
-            {/* 안내 사항 */}
-            <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
-              <h4 className="font-medium text-blue-800 mb-2">📝 탈퇴 안내</h4>
-              <ul className="text-sm text-gray-700 space-y-1 list-disc list-inside">
-                <li>탈퇴 시 비밀번호 확인이 필요합니다</li>
-                <li>admin과 demo 계정은 삭제할 수 없습니다</li>
-                <li><strong>탈퇴 시 모든 회사 데이터가 함께 삭제됩니다</strong></li>
-                <li>데이터를 보존하려는 경우 탈퇴 전 백업을 받아두세요</li>
-                <li>탈퇴 후 로그인 페이지로 이동합니다</li>
-              </ul>
-            </div>
-
-            {/* 백업 권장 */}
-            <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4">
-              <h4 className="font-medium text-yellow-800 mb-2">💾 탈퇴 전 백업 권장</h4>
-              <p className="text-sm text-gray-700 mb-2">
-                탈퇴 하면 모든 데이터가 삭제되므로,<br/>
-                중요한 데이터는 <strong>"백업 관리" 탭</strong>에서 백업하세요.
-              </p>
-              <p className="text-xs text-gray-600">
-                ※ 백업 파일을 보관해두면 나중에 새 계정으로 복원할 수 있습니다.
-              </p>
             </div>
           </div>
         )}

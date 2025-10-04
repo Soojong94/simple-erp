@@ -1,7 +1,8 @@
 import { useState, useEffect } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { companyAPI, customerAPI } from '../../lib/tauri'
-import { generateInvoicePDF } from '../../lib/pdf'
+import { prepareInvoiceData } from '../../lib/pdf/invoiceDataBuilder'
+import { generateInvoicePDFV3 } from '../../lib/pdf/invoiceV3'
 import type { TransactionWithItems } from '../../types'
 
 interface InvoicePreviewModalProps {
@@ -43,7 +44,9 @@ export default function InvoicePreviewModal({ isOpen, onClose, transaction }: In
 
     setIsGenerating(true)
     try {
-      const pdf = await generateInvoicePDF(transaction, company, customer, 'preview')
+      const invoiceData = await prepareInvoiceData(transaction, company, customer)
+      const pdf = await generateInvoicePDFV3(invoiceData, 'preview')
+
       const blob = pdf.output('blob')
       const url = URL.createObjectURL(blob)
       setPdfUrl(url)
@@ -59,7 +62,8 @@ export default function InvoicePreviewModal({ isOpen, onClose, transaction }: In
     if (!company || !customer) return
 
     try {
-      await generateInvoicePDF(transaction, company, customer, 'download')
+      const invoiceData = await prepareInvoiceData(transaction, company, customer)
+      await generateInvoicePDFV3(invoiceData, 'download')
       alert('PDF 파일이 다운로드되었습니다.')
     } catch (error) {
       console.error('PDF 다운로드 실패:', error)
@@ -71,7 +75,8 @@ export default function InvoicePreviewModal({ isOpen, onClose, transaction }: In
     if (!company || !customer) return
 
     try {
-      await generateInvoicePDF(transaction, company, customer, 'print')
+      const invoiceData = await prepareInvoiceData(transaction, company, customer)
+      await generateInvoicePDFV3(invoiceData, 'print')
     } catch (error) {
       console.error('인쇄 실패:', error)
       alert('인쇄 중 오류가 발생했습니다.')
@@ -86,11 +91,12 @@ export default function InvoicePreviewModal({ isOpen, onClose, transaction }: In
         
         {/* 헤더 */}
         <div className="flex justify-between items-center p-6 border-b border-gray-200">
-          <div>
+          <div className="flex-1">
             <h2 className="text-xl font-semibold text-gray-900">📄 거래명세서 미리보기</h2>
             <p className="text-sm text-gray-500 mt-1">
               {customer?.name} | {transaction.transaction_date}
             </p>
+
           </div>
 
           <button

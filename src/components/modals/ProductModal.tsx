@@ -49,7 +49,6 @@ export default function ProductModal({ isOpen, onClose, product }: ProductModalP
               inventorySettings.location = inventory.location || 'cold'
             }
           } catch (error) {
-            console.log('재고 설정 없음, 기본값 사용')
           }
         }
 

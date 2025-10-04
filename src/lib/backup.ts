@@ -77,10 +77,8 @@ const GLOBAL_BACKUP_KEYS = {
 // 💡 백업 로그 유틸리티
 const BackupLogger = {
   info: (message: string, data?: any) => {
-    console.log(`ℹ️ [BACKUP] ${message}`, data !== undefined ? data : '')
   },
   success: (message: string, data?: any) => {
-    console.log(`✅ [BACKUP] ${message}`, data !== undefined ? data : '')
   },
   warn: (message: string, data?: any) => {
     console.warn(`⚠️ [BACKUP] ${message}`, data !== undefined ? data : '')
@@ -89,10 +87,8 @@ const BackupLogger = {
     console.error(`❌ [BACKUP] ${message}`, data !== undefined ? data : '')
   },
   debug: (step: string, data: any) => {
-    console.log(`🔍 [BACKUP-DEBUG] ${step}:`, JSON.stringify(data, null, 2))
   },
   step: (step: number, message: string) => {
-    console.log(`📍 [BACKUP-STEP-${step}] ${message}`)
   }
 }
 
@@ -342,7 +338,6 @@ export const saveBackupToLocalFolder = async (data: BackupData, folderPath: stri
     const jsonString = JSON.stringify(data, null, 2)
     await tauriFs.writeTextFile(filePath, jsonString)
 
-    console.log(`💾 로컬 백업 저장 완료: ${filePath}`)
     return true
   } catch (error) {
     console.error('로컬 백업 저장 실패:', error)
@@ -367,7 +362,6 @@ export const downloadBackupFile = (data: BackupData): boolean => {
     document.body.removeChild(a)
     URL.revokeObjectURL(url)
 
-    console.log('📥 브라우저 다운로드 완료')
     return true
   } catch (error) {
     console.error('브라우저 다운로드 실패:', error)
@@ -402,12 +396,6 @@ export const exportBackup = async (isAutoBackup: boolean = false): Promise<boole
       // 백업 날짜 업데이트 - 🔥 전역 키 사용
       const today = new Date().toISOString().split('T')[0]
       localStorage.setItem(GLOBAL_BACKUP_KEYS.LAST_BACKUP_DATE, today)
-
-      console.log(`✅ 백업 완료: ${isAutoBackup ? '자동' : '수동'} 백업`, {
-        environment: isTauriEnvironment() ? 'Tauri' : 'Browser',
-        records: backupData.metadata.totalRecords,
-        date: backupData.metadata.backupDate
-      })
     }
 
     return success
@@ -484,7 +472,6 @@ export const deleteBackupFile = async (filePath: string): Promise<boolean> => {
     if (!tauriFs) return false
 
     await tauriFs.removeFile(filePath)
-    console.log(`🗑️ 백업 파일 삭제 완료: ${filePath}`)
     return true
   } catch (error) {
     console.error('백업 파일 삭제 실패:', error)
@@ -638,10 +625,13 @@ const migrateBackupData = (backupData: BackupData): BackupData => {
       updated_at: customer.updated_at ?? customer.created_at ?? now,
       // 선택적 필드 보장
       business_number: customer.business_number ?? null,
+      ceo_name: customer.ceo_name ?? null,
       contact_person: customer.contact_person ?? null,
       phone: customer.phone ?? null,
       email: customer.email ?? null,
-      address: customer.address ?? null
+      address: customer.address ?? null,
+      business_type: customer.business_type ?? null,  // 🆕 업태
+      business_item: customer.business_item ?? null   // 🆕 종목
     }
   })
   
@@ -888,7 +878,6 @@ export const formatFileSize = (bytes: number): string => {
  */
 export const deleteAllData = async (): Promise<{ success: boolean; error?: string }> => {
   try {
-    console.log('💾 백업 파일 생성 중...')
     
     // 1. 강제 백업 먼저 수행
     const backupSuccess = await exportBackup(false)
@@ -902,7 +891,6 @@ export const deleteAllData = async (): Promise<{ success: boolean; error?: strin
     // 2. 백업 완료 대기 (파일 저장 시간 확보)
     await new Promise(resolve => setTimeout(resolve, 1000))
     
-    console.log('🗑️ 전체 데이터 삭제 시작...')
     
     // 3. ERP 데이터 삭제
     const STORAGE_KEYS = getStorageKeys()
@@ -922,7 +910,6 @@ export const deleteAllData = async (): Promise<{ success: boolean; error?: strin
     // - 'simple-erp-users' (사용자 계정)
     // - 'simple-erp-current-session' (세션)
     
-    console.log('✅ 전체 데이터 삭제 완료')
     
     return { success: true }
   } catch (error) {

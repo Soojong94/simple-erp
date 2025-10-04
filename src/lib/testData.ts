@@ -91,10 +91,8 @@ const getRandomDate = () => {
 // 데이터 생성 함수
 export const generateTestData = async () => {
   try {
-    console.log('🎲 테스트 데이터 생성 시작...')
 
     // 1. 거래처 20개 생성 (고객 12개, 공급업체 8개)
-    console.log('👥 거래처 데이터 생성 중...')
     const customers = []
     
     for (let i = 0; i < 20; i++) {
@@ -116,7 +114,6 @@ export const generateTestData = async () => {
     }
 
     // 2. 상품 24개 생성 (카테고리별 6개씩)
-    console.log('📦 상품 데이터 생성 중...')
     const products = []
     
     for (const category of productCategories) {
@@ -139,7 +136,6 @@ export const generateTestData = async () => {
     }
 
     // 3. 거래 30개 생성
-    console.log('💼 거래 데이터 생성 중...')
     const transactions = []
     
     for (let i = 0; i < 30; i++) {
@@ -200,10 +196,6 @@ export const generateTestData = async () => {
       transactions.push(created)
     }
 
-    console.log('✅ 테스트 데이터 생성 완료!')
-    console.log(`👥 거래처: ${customers.length}개 (고객 ${customers.filter(c => c.type === 'customer').length}개, 공급업체 ${customers.filter(c => c.type === 'supplier').length}개)`)
-    console.log(`📦 상품: ${products.length}개 (${productCategories.map(cat => `${cat} ${products.filter(p => p.category === cat).length}개`).join(', ')})`)
-    console.log(`💼 거래: ${transactions.length}개 (매출 ${transactions.filter(t => t.transaction_type === 'sales').length}개, 매입 ${transactions.filter(t => t.transaction_type === 'purchase').length}개)`)
     
     alert('🎉 테스트 데이터가 성공적으로 생성되었습니다!\n페이지를 새로고침하면 데이터를 확인할 수 있습니다.')
     

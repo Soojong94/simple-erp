@@ -117,13 +117,11 @@ localStorage 기반 데이터 저장 및 관리 유틸리티입니다.
 #### 주요 함수
 
 ```tsx
-// localStorage 키 상수
-const STORAGE_KEYS = {
-  CUSTOMERS: 'simple-erp-customers',
-  PRODUCTS: 'simple-erp-products',
-  TRANSACTIONS: 'simple-erp-transactions',
-  INVENTORY: 'simple-erp-inventory',
-  // ...
+// localStorage 키 생성 (회사별 분리)
+function getCompanyStorageKey(entity: string): string {
+  // 현재 로그인한 회사의 ID를 기반으로 키 생성
+  // 예: "simple-erp-c1-customers", "simple-erp-c2-products"
+  return `simple-erp-c${session.company_id}-${entity}`
 }
 
 // 헬퍼 함수
@@ -133,6 +131,11 @@ function getNextId(entity: 'customer' | 'product' | 'transaction'): number
 function delay(ms: number): Promise<void>  // API 지연 시뮬레이션
 function isTauri(): boolean  // 실행 환경 감지
 ```
+
+**중요**: 모든 데이터는 회사별로 완전히 분리되어 저장됩니다:
+- 회사 1: `simple-erp-c1-customers`, `simple-erp-c1-products`, ...
+- 회사 2: `simple-erp-c2-customers`, `simple-erp-c2-products`, ...
+- 회사 N: `simple-erp-cN-customers`, `simple-erp-cN-products`, ...
 
 #### 특징
 - 타입 안전한 get/set

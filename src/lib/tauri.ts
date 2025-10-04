@@ -47,7 +47,6 @@ const initializeCompanyData = () => {
       created_at: new Date().toISOString()
     }
     setToStorage(STORAGE_KEYS.COMPANY, initialCompany)
-    console.log(`✅ 회사 정보 초기화: ${initialCompany.name} (ID: ${session.company_id})`)
   }
 
   // 다른 엔티티들은 빈 배열로 초기화 (기존 데이터가 없을 때만)
@@ -340,7 +339,6 @@ export const inventoryAPI = {
       
       // 재고 항목이 없으면 새로 생성
       if (invIndex < 0) {
-        console.log(`🎯 상품 #${movementData.product_id} 재고 항목 생성`)
         const newInventory: ProductInventory = {
           id: getNextId('inventory'),
           product_id: movementData.product_id,
@@ -356,17 +354,13 @@ export const inventoryAPI = {
       // 재고 수량 업데이트
       if (movementData.movement_type === 'in') {
         inventory[invIndex].current_stock += movementData.quantity
-        console.log(`  💼 입고: ${movementData.quantity}kg → 현재 재고: ${inventory[invIndex].current_stock}kg`)
       } else if (movementData.movement_type === 'out') {
         inventory[invIndex].current_stock -= movementData.quantity
-        console.log(`  💼 출고: ${movementData.quantity}kg → 현재 재고: ${inventory[invIndex].current_stock}kg`)
       } else if (movementData.movement_type === 'adjust') {
         const oldStock = inventory[invIndex].current_stock
         inventory[invIndex].current_stock += movementData.quantity
-        console.log(`  💼 조정: ${oldStock}kg → ${inventory[invIndex].current_stock}kg (변동: ${movementData.quantity}kg)`)
       } else if (movementData.movement_type === 'expired') {
         inventory[invIndex].current_stock -= movementData.quantity
-        console.log(`  💼 폐기: ${movementData.quantity}kg → 현재 재고: ${inventory[invIndex].current_stock}kg`)
       }
       
       inventory[invIndex].last_updated = new Date().toISOString()
@@ -520,7 +514,6 @@ export const inventoryAPI = {
   processTransactionInventory: async (transaction: TransactionWithItems) => {
     if (!transaction.items || transaction.items.length === 0) return
     
-    console.log(`🔄 거래 #${transaction.id}의 재고 영향 적용 시작...`)
     
     for (const item of transaction.items) {
       if (!item.product_id) continue
@@ -554,7 +547,6 @@ export const inventoryAPI = {
           status: 'active'
         })
         
-        console.log(`  📦 입고: ${item.product_name} +${item.quantity}kg`)
         
       } else if (transaction.transaction_type === 'sales') {
         const activeLots = await inventoryAPI.getActiveLots(item.product_id)
@@ -583,7 +575,6 @@ export const inventoryAPI = {
           })
           
           remainingQty -= deductQty
-          console.log(`  📤 출고: ${item.product_name} -${deductQty}kg (LOT: ${lot.lot_number})`)
         }
         
         if (remainingQty > 0) {
@@ -592,7 +583,6 @@ export const inventoryAPI = {
       }
     }
     
-    console.log(`✅ 거래 #${transaction.id} 재고 영향 적용 완료`)
   }
 }
 

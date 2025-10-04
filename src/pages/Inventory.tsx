@@ -39,7 +39,6 @@ export default function Inventory() {
     const initializeInventory = async () => {
       // 초기화 검사: 재고 기록이 없고 거래는 있을 경우
       if (inventory.length === 0 && transactions.length > 0 && products.length > 0) {
-        console.log('=== 재고 초기화 시작 ===')
         
         // 각 상품별 현재 재고 합계
         const stockByProduct = new Map<number, number>()
@@ -81,7 +80,6 @@ export default function Inventory() {
         
         // 통계 갱신
         await inventoryAPI.getStats()
-        console.log('=== 재고 초기화 완료 ===')
       }
     }
     

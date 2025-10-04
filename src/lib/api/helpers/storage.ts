@@ -12,7 +12,6 @@ export const getCompanyStorageKey = (entity: string): string => {
       if (sessionData) {
         const parsedSession = JSON.parse(sessionData)
         companyId = parsedSession?.company_id
-        console.log('✅ localStorage에서 companyId 찾음:', companyId)
       }
     } catch (e) {
       console.error('❌ localStorage에서 세션 읽기 실패:', e)

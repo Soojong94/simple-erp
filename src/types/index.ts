@@ -60,6 +60,8 @@ export interface Customer {
   address?: string
   phone?: string
   email?: string
+  business_type?: string  // 🆕 업태
+  business_item?: string  // 🆕 종목
   type: 'customer' | 'supplier'  // customer_type → type 으로 통일
   contact_person?: string
   is_active: boolean
@@ -163,7 +165,8 @@ export interface Company {
   address?: string
   phone?: string
   email?: string
-  business_type?: string
+  business_type?: string  // 업태
+  business_item?: string  // 🆕 종목
   tax_invoice_api_key?: string
   tax_invoice_cert_file?: string
   default_invoice_memo?: string  // 🆕 기본 메모 추가

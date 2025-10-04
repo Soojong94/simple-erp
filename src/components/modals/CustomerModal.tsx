@@ -16,11 +16,14 @@ export default function CustomerModal({ isOpen, onClose, customer }: CustomerMod
   const [formData, setFormData] = useState({
     name: '',
     business_number: '',
+    ceo_name: '',
     type: 'customer' as 'customer' | 'supplier',
     contact_person: '',
     phone: '',
     email: '',
     address: '',
+    business_type: '',  // 🆕 업태
+    business_item: '',  // 🆕 종목
     is_active: true,
     outstanding_balance: 0  // 🆕 미수금
   })
@@ -31,11 +34,14 @@ export default function CustomerModal({ isOpen, onClose, customer }: CustomerMod
       setFormData({
         name: customer.name || '',
         business_number: customer.business_number || '',
+        ceo_name: customer.ceo_name || '',
         type: customer.type || 'customer',
         contact_person: customer.contact_person || '',
         phone: customer.phone || '',
         email: customer.email || '',
         address: customer.address || '',
+        business_type: customer.business_type || '',  // 🆕
+        business_item: customer.business_item || '',  // 🆕
         is_active: customer.is_active ?? true,
         outstanding_balance: customer.outstanding_balance || 0  // 🆕
       })
@@ -76,11 +82,14 @@ export default function CustomerModal({ isOpen, onClose, customer }: CustomerMod
     setFormData({
       name: '',
       business_number: '',
+      ceo_name: '',
       type: 'customer',
       contact_person: '',
       phone: '',
       email: '',
       address: '',
+      business_type: '',  // 🆕
+      business_item: '',  // 🆕
       is_active: true,
       outstanding_balance: 0  // 🆕
     })
@@ -161,6 +170,21 @@ export default function CustomerModal({ isOpen, onClose, customer }: CustomerMod
               />
             </div>
 
+            {/* 대표자 */}
+            <div>
+              <label className="block text-sm font-medium text-gray-700">
+                대표자
+              </label>
+              <input
+                type="text"
+                name="ceo_name"
+                value={formData.ceo_name}
+                onChange={handleChange}
+                className="mt-1 block w-full border border-gray-300 rounded-md px-3 py-2 shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
+                placeholder="홍길동"
+              />
+            </div>
+
             {/* 거래처 유형 */}
             <div>
               <label className="block text-sm font-medium text-gray-700">
@@ -220,6 +244,36 @@ export default function CustomerModal({ isOpen, onClose, customer }: CustomerMod
                 onChange={handleChange}
                 className="mt-1 block w-full border border-gray-300 rounded-md px-3 py-2 shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
                 placeholder="example@company.com"
+              />
+            </div>
+
+            {/* 업태 */}
+            <div>
+              <label className="block text-sm font-medium text-gray-700">
+                업태
+              </label>
+              <input
+                type="text"
+                name="business_type"
+                value={formData.business_type}
+                onChange={handleChange}
+                className="mt-1 block w-full border border-gray-300 rounded-md px-3 py-2 shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
+                placeholder="예: 도매 및 소매업"
+              />
+            </div>
+
+            {/* 종목 */}
+            <div>
+              <label className="block text-sm font-medium text-gray-700">
+                종목
+              </label>
+              <input
+                type="text"
+                name="business_item"
+                value={formData.business_item}
+                onChange={handleChange}
+                className="mt-1 block w-full border border-gray-300 rounded-md px-3 py-2 shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
+                placeholder="예: 육류 도매"
               />
             </div>
           </div>

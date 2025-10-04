@@ -21,11 +21,12 @@ auth/
 ```tsx
 const STORAGE_KEYS = {
   USERS: 'simple-erp-users',              // 사용자 목록
-  SESSIONS: 'simple-erp-sessions',        // 세션 목록
   CURRENT_SESSION: 'simple-erp-current-session',  // 현재 세션
-  COMPANIES: 'simple-erp-companies'       // 회사 정보
+  COMPANIES: 'simple-erp-companies'       // 회사 목록
 }
 ```
+
+**중요**: 이전 버전의 `SESSIONS` 배열은 더 이상 사용하지 않습니다. 현재는 `CURRENT_SESSION` 단일 객체를 사용합니다.
 
 #### 주요 함수
 
@@ -41,12 +42,14 @@ async function register(data: RegisterData): Promise<{
 ```
 
 **처리 과정**:
-1. 사용자명 중복 체크
-2. 회사 ID 생성 (자동 증가)
-3. 비밀번호 해시 처리
-4. 사용자 정보 저장
-5. 회사 정보 저장
-6. 자동 로그인 (세션 생성)
+1. 입력 검증 (사용자명 3자 이상, 비밀번호 4자 이상)
+2. 사용자명 중복 체크
+3. 회사 생성 (자동 증가 ID, 기본 ID는 3부터)
+4. 사용자 생성 (회사의 첫 사용자는 자동으로 `admin` 권한)
+5. 비밀번호 해시 처리
+6. 사용자 및 회사 정보 저장
+
+**특별 계정**: `admin`(ID 1, 회사 1)과 `demo`(ID 2, 회사 2)는 시스템이 자동으로 생성하며 삭제할 수 없습니다.
 
 **반환값**:
 - `success`: 성공 여부
@@ -120,15 +123,19 @@ async function deleteAccount(password: string): Promise<DeleteAccountResult>
 ```
 
 **처리 과정**:
-1. 비밀번호 재확인
-2. 회사 데이터 전체 삭제
-   - 거래처
-   - 상품
-   - 거래
-   - 재고 정보
-   - 백업 설정
-3. 사용자 및 회사 정보 삭제
-4. 세션 삭제
+1. `admin`과 `demo` 계정 보호 (삭제 불가)
+2. 비밀번호 재확인
+3. **탈퇴 전 자동 백업** (백업 실패 시에도 계속 진행)
+4. 회사별 데이터 전체 삭제
+   - `simple-erp-c{companyId}-customers`
+   - `simple-erp-c{companyId}-products`
+   - `simple-erp-c{companyId}-transactions`
+   - `simple-erp-c{companyId}-customer-product-prices`
+   - `simple-erp-c{companyId}-company`
+   - `simple-erp-c{companyId}-next-ids`
+5. 전역 companies 배열에서 회사 제거
+6. 사용자 정보 삭제
+7. 로그아웃 (세션 삭제)
 
 **반환값**:
 ```tsx

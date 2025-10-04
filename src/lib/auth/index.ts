@@ -123,7 +123,6 @@ export async function login(credentials: LoginCredentials): Promise<{
   users[userIndex] = user
   setToStorage(STORAGE_KEYS.USERS, users)
   
-  console.log(`✅ ${user.display_name} 로그인 성공 (회사 ID: ${user.company_id})`)
   
   return {
     success: true,
@@ -187,7 +186,6 @@ export async function register(data: RegisterData): Promise<{
   users.push(newUser)
   setToStorage(STORAGE_KEYS.USERS, users)
   
-  console.log(`✅ 새 회사 '${company_name}' 및 관리자 '${display_name}' 생성 완료`)
   
   return {
     success: true,
@@ -200,7 +198,6 @@ export async function register(data: RegisterData): Promise<{
  */
 export function logout(): void {
   localStorage.removeItem(STORAGE_KEYS.CURRENT_SESSION)
-  console.log('✅ 로그아웃 완료')
 }
 
 /**
@@ -242,15 +239,7 @@ export async function deleteAccount(password: string): Promise<{
   success: boolean
   error?: string
 }> {
-  console.log('🔍 deleteAccount 호출됨')
-  console.log('📦 localStorage 내용:', {
-    hasSession: !!localStorage.getItem(STORAGE_KEYS.CURRENT_SESSION),
-    hasUsers: !!localStorage.getItem(STORAGE_KEYS.USERS),
-    sessionData: localStorage.getItem(STORAGE_KEYS.CURRENT_SESSION)
-  })
-  
   const session = getCurrentSession()
-  console.log('👤 getCurrentSession() 결과:', session)
   
   if (!session) {
     console.error('❌ 세션이 없음!')
@@ -278,14 +267,11 @@ export async function deleteAccount(password: string): Promise<{
     return { success: false, error: '비밀번호가 올바르지 않습니다.' }
   }
   
-  console.log(`🗑️ 계정 및 데이터 삭제 시작: ${user.display_name} (회사 ID: ${user.company_id})`)
   
   // 4. 탈퇴 전 자동 백업
   try {
-    console.log('💾 탈퇴 전 자동 백업 시작...')
     const { exportBackup } = await import('../backup')
     await exportBackup(false)
-    console.log('✅ 백업 완료')
   } catch (backupError) {
     console.warn('⚠️ 백업 실패 (계속 진행):', backupError)
   }
@@ -305,14 +291,12 @@ export async function deleteAccount(password: string): Promise<{
     localStorage.removeItem(key)
   })
   
-  console.log(`📦 회사 데이터 삭제 완료 (회사 ID: ${companyId})`)
   
   // 5. 전역 companies 배열에서 회사 제거
   try {
     const companies = getFromStorage<any[]>('simple-erp-companies', [])
     const updatedCompanies = companies.filter(c => c.id !== companyId)
     setToStorage('simple-erp-companies', updatedCompanies)
-    console.log(`🗑️ 전역 companies 배열에서 회사 제거 완료`)
   } catch (e) {
     console.warn('전역 companies 제거 실패:', e)
   }
@@ -321,7 +305,6 @@ export async function deleteAccount(password: string): Promise<{
   const updatedUsers = users.filter(u => u.id !== user.id)
   setToStorage(STORAGE_KEYS.USERS, updatedUsers)
   
-  console.log(`✅ 계정 삭제 완료: ${user.display_name} (ID: ${user.id})`)
   
   // 7. 로그아웃
   logout()
@@ -340,7 +323,6 @@ export function createDemoData(): void {
   const hasDemo = users.some(u => u.username === 'demo')
 
   if (!hasAdmin || !hasDemo) {
-    console.log('🔧 admin/demo 계정 복구 중...')
 
     const companies = getFromStorage<any[]>(STORAGE_KEYS.COMPANIES, [])
 
@@ -366,7 +348,6 @@ export function createDemoData(): void {
         is_active: true,
         created_at: new Date().toISOString()
       })
-      console.log('✅ admin 계정 복구 완료')
     }
 
     // demo 계정 복구
@@ -382,7 +363,6 @@ export function createDemoData(): void {
         is_active: true,
         created_at: new Date().toISOString()
       })
-      console.log('✅ demo 계정 복구 완료')
     }
 
     setToStorage(STORAGE_KEYS.USERS, users)
@@ -397,7 +377,6 @@ export function createDemoData(): void {
     }
     setToStorage('simple-erp-next-ids', nextIds)
 
-    console.log('로그인 정보: admin/1234 또는 demo/1234')
   }
 }
 

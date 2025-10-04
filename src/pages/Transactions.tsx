@@ -49,7 +49,6 @@ export default function Transactions() {
   
   // advancedFilters 변경 감지 (디버그용)
   useEffect(() => {
-    console.log('📄 advancedFilters 변경:', advancedFilters)
   }, [advancedFilters])
   
   const [showAdvancedSearch, setShowAdvancedSearch] = useState(false)
@@ -84,14 +83,12 @@ export default function Transactions() {
 
   // Event handlers
   const handleAddTransaction = () => {
-    console.log('🎯 거래 추가 버튼 클릭')
     setEditingTransaction(undefined)
     setPreSelectedCustomerId(0)
     setIsModalOpen(true)
   }
 
   const handleAddTransactionWithCustomer = (customerId: number) => {
-    console.log('🎯 거래처로 거래 추가:', customerId)
     setEditingTransaction(undefined)
     setPreSelectedCustomerId(customerId)
     setIsModalOpen(true)
@@ -155,7 +152,6 @@ export default function Transactions() {
   }
 
   const handlePrintInvoice = (transaction: TransactionWithItems) => {
-    console.log('📄 거래증 출력:', transaction.id)
     setSelectedTransaction(transaction)
     setIsInvoiceModalOpen(true)
   }
@@ -166,7 +162,6 @@ export default function Transactions() {
     customerFilter: 'all' | 'customer' | 'supplier'
     transactionTypeFilter: 'all' | 'sales' | 'purchase'
   }) => {
-    console.log('🔄 사이드바 필터 변경:', filters)
     
     // 거래 타입 필터 적용
     if (filters.transactionTypeFilter !== 'all') {
@@ -205,41 +200,28 @@ export default function Transactions() {
       transaction.items?.some(item => item.product_name.toLowerCase().includes(advancedFilters.searchQuery.toLowerCase()))
     const matchesMinAmount = !advancedFilters.minAmount || transaction.total_amount >= Number(advancedFilters.minAmount)
     const matchesMaxAmount = !advancedFilters.maxAmount || transaction.total_amount <= Number(advancedFilters.maxAmount)
-    
-    // 디버그 로그
-    if (advancedFilters.searchQuery) {
-      console.log('🔍 검색 필터링:', {
-        query: advancedFilters.searchQuery,
-        transaction_id: transaction.id,
-        customer_name: transaction.customer_name,
-        matchesSearch
-      })
-    }
-    
-    if (advancedFilters.customerId > 0) {
-      console.log('🎯 거래처 필터링:', {
-        filter_customerId: advancedFilters.customerId,
-        transaction_id: transaction.id,
-        transaction_customerId: transaction.customer_id,
-        customer_name: transaction.customer_name,
-        matchesCustomer
-      })
-    }
-    
-    return matchesType && matchesDateFrom && matchesDateTo && 
+
+    return matchesType && matchesDateFrom && matchesDateTo &&
            matchesCustomer && matchesSearch && matchesMinAmount && matchesMaxAmount
   })
 
   // 정렬된 거래 목록
   const sortedTransactions = useMemo(() => {
     if (!filteredTransactions) return []
-    
+
     return [...filteredTransactions].sort((a, b) => {
       let comparison = 0
-      
+
       switch (sortBy) {
         case 'date':
-          comparison = new Date(a.transaction_date).getTime() - new Date(b.transaction_date).getTime()
+          // 날짜로 정렬, 같으면 ID로 정렬 (최신 ID = 큰 숫자)
+          const dateComparison = new Date(a.transaction_date).getTime() - new Date(b.transaction_date).getTime()
+          if (dateComparison !== 0) {
+            comparison = dateComparison
+          } else {
+            // 같은 날짜면 ID로 비교 (최신 거래가 위로)
+            comparison = (a.id || 0) - (b.id || 0)
+          }
           break
         case 'customer':
           comparison = a.customer_name.localeCompare(b.customer_name)
@@ -251,7 +233,7 @@ export default function Transactions() {
           comparison = (a.items?.length || 0) - (b.items?.length || 0)
           break
       }
-      
+
       return sortOrder === 'asc' ? comparison : -comparison
     })
   }, [filteredTransactions, sortBy, sortOrder])
@@ -273,6 +255,8 @@ export default function Transactions() {
     totalSalesAmount: filteredTransactions?.filter(t => t.transaction_type === 'sales')
       .reduce((sum, t) => sum + t.total_amount, 0) || 0,
     totalPurchaseAmount: filteredTransactions?.filter(t => t.transaction_type === 'purchase')
+      .reduce((sum, t) => sum + t.total_amount, 0) || 0,
+    totalPaymentAmount: filteredTransactions?.filter(t => t.transaction_type === 'payment')
       .reduce((sum, t) => sum + t.total_amount, 0) || 0
   }
 
@@ -380,17 +364,17 @@ export default function Transactions() {
             <div className="p-5">
               <div className="flex items-center">
                 <div className="flex-shrink-0">
-                  <div className="w-8 h-8 bg-purple-100 rounded-md flex items-center justify-center">
-                    <span className="text-purple-600 text-sm font-medium">📈</span>
+                  <div className="w-8 h-8 bg-green-100 rounded-md flex items-center justify-center">
+                    <span className="text-green-600 text-sm font-medium">💰</span>
                   </div>
                 </div>
                 <div className="ml-5 w-0 flex-1">
                   <dl>
                     <dt className="text-sm font-medium text-gray-500 truncate">
-                      수익
+                      총 수금
                     </dt>
                     <dd className="text-lg font-medium text-gray-900">
-                      {formatCurrency(stats.totalSalesAmount - stats.totalPurchaseAmount)}
+                      {formatCurrency(stats.totalPaymentAmount)}
                     </dd>
                   </dl>
                 </div>
@@ -709,7 +693,6 @@ export default function Transactions() {
         <TransactionModal 
           isOpen={isModalOpen}
           onClose={() => {
-            console.log('🚪 모달 닫기')
             setIsModalOpen(false)
             setPreSelectedCustomerId(0)
           }}
@@ -736,13 +719,11 @@ export default function Transactions() {
           customers={customers}
           searchTerm={sidebarSearchTerm}
           onSearchChange={(term) => {
-            console.log('🔍 사이드바 검색어 변경:', term)
             setSidebarSearchTerm(term)
             // 메인 검색어도 업데이트
             setAdvancedFilters(prev => ({ ...prev, searchQuery: term }))
           }}
           onCustomerClick={(customerId) => {
-            console.log('🎯 거래처 클릭:', customerId)
             const customer = customers?.find(c => c.id === customerId)
             if (customer) {
               // 메인 페이지 검색어만 업데이트 (사이드바는 그대로)

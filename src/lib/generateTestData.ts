@@ -257,7 +257,6 @@ export function generateTransactions(
  */
 export function generateAndSaveTestData() {
   try {
-    console.log('🎲 테스트 데이터 생성 시작...')
     
     // 데이터 생성
     const customers = generateCustomers()
@@ -277,10 +276,6 @@ export function generateAndSaveTestData() {
     }
     localStorage.setItem('simple-erp-next-ids', JSON.stringify(nextIds))
     
-    console.log('✅ 테스트 데이터 생성 완료!')
-    console.log(`   - 거래처: ${customers.length}개 (고객 ${customers.filter(c => c.type === 'customer').length}개, 공급업체 ${customers.filter(c => c.type === 'supplier').length}개)`)
-    console.log(`   - 상품: ${products.length}개 (돼지 6, 소 6, 닭 6, 오리 6)`)
-    console.log(`   - 거래: ${transactions.length}개 (매출 18개, 매입 12개)`)
     
     return {
       success: true,

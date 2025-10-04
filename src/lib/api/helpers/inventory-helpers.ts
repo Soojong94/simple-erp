@@ -8,13 +8,11 @@ import { STORAGE_KEYS, getFromStorage, setToStorage } from './storage'
 export const cancelTransactionInventoryEffect = async (transaction: TransactionWithItems) => {
   // 🎯 payment 거래는 재고 영향이 없으므로 처리 안 함
   if (transaction.transaction_type === 'payment') {
-    console.log(`⏭️ 거래 #${transaction.id}는 수금 거래로 재고 영향 없음 - 스킵`)
     return
   }
   
   if (!transaction.items || transaction.items.length === 0) return
   
-  console.log(`🔄 거래 #${transaction.id}의 재고 영향 취소 시작...`)
   
   // inventoryAPI import를 피하기 위해 직접 처리
   const createMovement = async (movementData: any) => {
@@ -56,7 +54,6 @@ export const cancelTransactionInventoryEffect = async (transaction: TransactionW
           notes: `거래 삭제/수정으로 인한 입고 취소 (거래 #${transaction.id})`
         })
         
-        console.log(`  📦 로트 ${lot.lot_number} 취소됨 (-${lot.initial_quantity}kg)`)
       }
       
       setToStorage(STORAGE_KEYS.STOCK_LOTS, lots)
@@ -94,10 +91,8 @@ export const cancelTransactionInventoryEffect = async (transaction: TransactionW
           }
         }
         
-        console.log(`  📤 출고 취소: ${movement.product_name} +${movement.quantity}kg`)
       }
     }
   }
   
-  console.log(`✅ 거래 #${transaction.id} 재고 영향 취소 완료`)
 }

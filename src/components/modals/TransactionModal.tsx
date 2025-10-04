@@ -37,7 +37,6 @@ export default function TransactionModal({
 
   // formData.customer_id 변경 감지 (디버그용)
   useEffect(() => {
-    console.log('📊 formData.customer_id 변경:', formData.customer_id)
   }, [formData.customer_id])
 
   const [items, setItems] = useState<TransactionItem[]>([])
@@ -71,14 +70,7 @@ export default function TransactionModal({
 
   // preSelectedCustomerId 처리 (수정 모드가 아닐 때만)
   useEffect(() => {
-    console.log('🎯 preSelectedCustomerId useEffect 실행:', {
-      preSelectedCustomerId,
-      isEditing,
-      transaction: !!transaction
-    })
-
     if (preSelectedCustomerId && preSelectedCustomerId > 0 && !isEditing) {
-      console.log('✅ 거래처 자동 선택:', preSelectedCustomerId)
       setFormData(prev => ({
         ...prev,
         customer_id: preSelectedCustomerId
@@ -240,7 +232,8 @@ export default function TransactionModal({
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['transactions'] })
       queryClient.invalidateQueries({ queryKey: ['customers'] })
-      queryClient.invalidateQueries({ queryKey: ['recent-payments'] })  // 🎯 수금 내역 캐시 무효화
+      // 🎯 모든 customer의 수금 쿼리 무효화 (customer_id별로 캐시되어 있음)
+      queryClient.invalidateQueries({ queryKey: ['recent-payments'] })
       queryClient.invalidateQueries({ queryKey: ['inventory'] })
       queryClient.invalidateQueries({ queryKey: ['inventory-stats'] })
       queryClient.invalidateQueries({ queryKey: ['stock-movements'] })
@@ -329,23 +322,15 @@ export default function TransactionModal({
           // 1순위: 최근 거래의 원산지/도축장
           updatedItems[index].origin = stats.lastOrigin
           updatedItems[index].slaughterhouse = stats.lastSlaughterhouse
-          console.log(`🌍 최근 거래 원산지/도축장 로딩: ${product.name}`)
-          console.log(`   - 원산지: "${stats.lastOrigin}" (최근 거래)`)
-          console.log(`   - 도축장: "${stats.lastSlaughterhouse}" (최근 거래)`)
         } else if (product.origin || product.slaughterhouse) {
           // 2순위: 상품 기본값
           updatedItems[index].origin = product.origin
           updatedItems[index].slaughterhouse = product.slaughterhouse
-          console.log(`🌍 상품 기본 원산지/도축장 로딩: ${product.name}`)
-          console.log(`   - 원산지: "${product.origin || '없음'}" (상품 기본값)`)
-          console.log(`   - 도축장: "${product.slaughterhouse || '없음'}" (상품 기본값)`)
         } else {
-          console.log(`⚠️ 원산지/도축장 없음: ${product.name} - 직접 입력 필요`)
         }
 
         // 🎯 1순위: 최근 거래 단가 (기존에 거래했던 금액)
         if (stats && stats.lastUnitPrice > 0) {
-          console.log(`💰 최근 거래 단가 자동 로딩: ${product.name} = ${stats.lastUnitPrice}원`)
           updatedItems[index].unit_price = stats.lastUnitPrice
         }
         // 2순위: 상품 기본 가격
@@ -355,18 +340,15 @@ export default function TransactionModal({
 
         // 🎯 최근 거래 수량 자동 로딩
         if (stats && stats.lastQuantity > 0) {
-          console.log(`📦 최근 거래 수량 자동 로딩: ${product.name} = ${stats.lastQuantity}${product.unit}`)
           updatedItems[index].quantity = stats.lastQuantity
         }
 
         // 🎯 이력번호 자동 입력 (우선순위: 최근 거래 > 상품 기본값)
         if (stats && stats.lastTraceability) {
           // 1순위: 최근 거래 이력번호
-          console.log(`📝 최근 거래 이력번호 로딩: ${product.name} = ${stats.lastTraceability}`)
           updatedItems[index].traceability_number = stats.lastTraceability
         } else if (product.traceability_number) {
           // 2순위: 상품 기본 이력번호
-          console.log(`🏷️ 상품 기본 이력번호 로딩: ${product.name} = ${product.traceability_number}`)
           updatedItems[index].traceability_number = product.traceability_number
         }
 
@@ -457,12 +439,6 @@ export default function TransactionModal({
     }
 
     // 데이터 확인용 로그
-    console.log('=== 거래 데이터 확인 ===')
-    console.log('VAT 포함 여부:', isVatIncluded)
-    console.log('상품 금액:', totalAmount)
-    console.log('부가세:', taxAmount)
-    console.log('최종 총액:', displayTotalAmount)
-    console.log('======================')
 
     if (isEditing && transaction) {
       updateMutation.mutate({ id: transaction.id!, data: submitData })

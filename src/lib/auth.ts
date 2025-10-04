@@ -151,7 +151,6 @@ export const initializeCurrentCompanyData = (): void => {
   const existingData = localStorage.getItem(`${companyKey}-customers`)
   
   if (!existingData) {
-    console.log(`💡 회사 ${session.company_id} 데이터 초기화`)
     
     // 빈 데이터 구조 생성
     const emptyData = {
@@ -194,7 +193,6 @@ export const createDemoData = (): void => {
   const users = getFromStorage(STORAGE_KEYS.USERS, [])
   
   if (users.length === 0) {
-    console.log('💡 데모 계정 생성')
     
     const demoUsers = [
       {

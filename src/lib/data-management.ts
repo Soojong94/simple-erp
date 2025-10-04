@@ -36,7 +36,6 @@ export const resetAllData = async (): Promise<boolean> => {
       return false
     }
 
-    console.log('🗑️ 전체 데이터 초기화 시작...')
 
     // 1. 거래 내역 삭제
     const transactions = await transactionAPI.getAll()
@@ -45,7 +44,6 @@ export const resetAllData = async (): Promise<boolean> => {
         await transactionAPI.delete(tx.id)
       }
     }
-    console.log(`✅ 거래 ${transactions.length}건 삭제 완료`)
 
     // 2. 상품 삭제
     const products = await productAPI.getAll()
@@ -54,7 +52,6 @@ export const resetAllData = async (): Promise<boolean> => {
         await productAPI.delete(product.id)
       }
     }
-    console.log(`✅ 상품 ${products.length}개 삭제 완료`)
 
     // 3. 거래처 삭제
     const customers = await customerAPI.getAll()
@@ -63,7 +60,6 @@ export const resetAllData = async (): Promise<boolean> => {
         await customerAPI.delete(customer.id)
       }
     }
-    console.log(`✅ 거래처 ${customers.length}개 삭제 완료`)
 
     // 4. localStorage의 모든 ERP 관련 데이터 제거
     const keys = Object.keys(localStorage)
@@ -76,9 +72,7 @@ export const resetAllData = async (): Promise<boolean> => {
     erpKeys.forEach(key => {
       localStorage.removeItem(key)
     })
-    console.log(`✅ localStorage 키 ${erpKeys.length}개 삭제 완료`)
 
-    console.log('✅ 전체 데이터 초기화 완료!')
     alert('✅ 모든 데이터가 삭제되었습니다.')
     
     return true

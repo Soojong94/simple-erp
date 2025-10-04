@@ -53,7 +53,6 @@ const slaughterhouses = [
  * 거래처 테스트 데이터 생성
  */
 export async function generateTestCustomers(count: number = 100): Promise<void> {
-  console.log(`🏢 거래처 ${count}개 생성 시작...`)
   
   for (let i = 0; i < count; i++) {
     const type = i % 2 === 0 ? 'customer' : 'supplier'
@@ -77,18 +76,15 @@ export async function generateTestCustomers(count: number = 100): Promise<void> 
     
     // 진행상황 로깅 (10%마다)
     if ((i + 1) % Math.ceil(count / 10) === 0) {
-      console.log(`진행: ${i + 1}/${count} 거래처 생성 완료`)
     }
   }
   
-  console.log(`✅ 거래처 ${count}개 생성 완료`)
 }
 
 /**
  * 상품 테스트 데이터 생성
  */
 export async function generateTestProducts(count: number = 150): Promise<void> {
-  console.log(`📦 상품 ${count}개 생성 시작...`)
   
   const categories = Object.keys(productNames) as Array<keyof typeof productNames>
   
@@ -128,18 +124,15 @@ export async function generateTestProducts(count: number = 150): Promise<void> {
     
     // 진행상황 로깅
     if ((i + 1) % Math.ceil(count / 10) === 0) {
-      console.log(`진행: ${i + 1}/${count} 상품 생성 완료`)
     }
   }
   
-  console.log(`✅ 상품 ${count}개 생성 완료`)
 }
 
 /**
  * 거래 테스트 데이터 생성
  */
 export async function generateTestTransactions(count: number = 200): Promise<void> {
-  console.log(`📊 거래 ${count}개 생성 시작...`)
   
   // 기존 거래처와 상품 조회
   const customers = await customerAPI.getAll()
@@ -213,19 +206,15 @@ export async function generateTestTransactions(count: number = 200): Promise<voi
     
     // 진행상황 로깅
     if ((i + 1) % Math.ceil(count / 10) === 0) {
-      console.log(`진행: ${i + 1}/${count} 거래 생성 완료`)
     }
   }
   
-  console.log(`✅ 거래 ${count}개 생성 완료`)
 }
 
 /**
  * 전체 테스트 데이터 생성
  */
 export async function generateAllTestData(): Promise<void> {
-  console.log('🚀 전체 테스트 데이터 생성 시작...')
-  console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━')
   
   const startTime = Date.now()
   
@@ -236,11 +225,6 @@ export async function generateAllTestData(): Promise<void> {
     
     const elapsed = ((Date.now() - startTime) / 1000).toFixed(1)
     
-    console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━')
-    console.log('✨ 모든 테스트 데이터 생성 완료!')
-    console.log(`📊 총 데이터: 거래처 100개, 상품 150개, 거래 200개`)
-    console.log(`⏱️ 소요 시간: ${elapsed}초`)
-    console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━')
   } catch (error) {
     console.error('❌ 테스트 데이터 생성 중 오류 발생:', error)
     throw error

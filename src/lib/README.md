@@ -14,6 +14,9 @@ lib/
 │       ├── storage.ts
 │       ├── backup.ts
 │       └── inventory-helpers.ts
+├── auth/                # 인증 시스템
+│   ├── index.ts         # 로그인, 회원가입, 세션 관리
+│   └── utils.ts         # 비밀번호 해싱, 토큰 생성
 ├── csv/                 # CSV 처리
 │   ├── import.ts
 │   └── export.ts
@@ -22,36 +25,45 @@ lib/
 ├── pdf/                 # PDF 생성
 │   ├── pdfConfig.ts
 │   └── index.ts
-├── auth.ts              # 인증 시스템
-├── tauri.ts             # API 통합
-├── utils.ts             # 유틸리티
+├── backup.ts            # 백업/복원 시스템
+├── tauri.ts             # API 통합 레이어
+├── utils.ts             # 유틸리티 함수
 └── cn.ts                # 클래스네임 병합
 ```
 
 ## 핵심 파일
 
-### auth.ts
-사용자 인증 및 세션 관리
+### auth/index.ts
+사용자 인증 및 멀티테넌트 세션 관리
 
 **주요 함수**
 ```typescript
-// 계정 관리
-createAccount(username, password, companyData): Account
-login(username, password): UserSession | null
+// 회원가입 및 로그인
+register(data: RegisterData): Promise<RegisterResult>
+login(credentials: LoginCredentials): Promise<LoginResult>
 logout(): void
 
 // 세션 관리
 getCurrentSession(): UserSession | null
-updateSession(session): void
-isAuthenticated(): boolean
+isLoggedIn(): boolean
 
 // 회사 관리
-getCompanyBySession(): Company | null
-initializeCompanyData(companyId): void
+getCompanyUsers(): User[]              // 같은 회사의 사용자 목록
+isAdmin(): boolean                     // 관리자 권한 확인
+getCompanyStorageKey(entity: string): string  // 회사별 localStorage 키
 
-// 데모 계정
-ensureDemoAccounts(): void
+// 데모 계정 (자동 복구)
+createDemoData(): void                 // admin(ID 1)과 demo(ID 2) 자동 생성
+
+// 회원 탈퇴
+deleteAccount(password: string): Promise<DeleteAccountResult>
 ```
+
+**특징**:
+- 회사별 완전한 데이터 분리 (`simple-erp-c{companyId}-{entity}`)
+- admin/demo 계정 삭제 방지
+- 브루트포스 방지 (5분간 5회 제한)
+- 탈퇴 전 자동 백업
 
 **데이터 구조**
 ```typescript
