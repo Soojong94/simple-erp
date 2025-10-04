@@ -6,8 +6,8 @@ import { STORAGE_KEYS, getFromStorage, setToStorage } from './storage'
  * (거래 삭제나 수정 시 기존 재고 영향을 되돌림)
  */
 export const cancelTransactionInventoryEffect = async (transaction: TransactionWithItems) => {
-  // 🎯 payment 거래는 재고 영향이 없으므로 처리 안 함
-  if (transaction.transaction_type === 'payment') {
+  // 🎯 payment_in/payment_out 거래는 재고 영향이 없으므로 처리 안 함
+  if (transaction.transaction_type === 'payment_in' || transaction.transaction_type === 'payment_out') {
     return
   }
   

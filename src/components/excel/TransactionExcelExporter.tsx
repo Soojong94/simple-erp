@@ -13,7 +13,7 @@ interface FilterOptions {
   dateFrom: string
   dateTo: string
   customerId: string
-  transactionType: 'all' | 'sales' | 'purchase'
+  transactionType: 'all' | 'sales' | 'purchase' | 'payment_in' | 'payment_out'
   searchQuery: string
 }
 
@@ -67,17 +67,25 @@ export default function TransactionExcelExporter({ transactions }: TransactionEx
   const stats = useMemo(() => {
     const salesTransactions = filteredTransactions.filter(t => t.transaction_type === 'sales')
     const purchaseTransactions = filteredTransactions.filter(t => t.transaction_type === 'purchase')
-    
+    const paymentInTransactions = filteredTransactions.filter(t => t.transaction_type === 'payment_in')
+    const paymentOutTransactions = filteredTransactions.filter(t => t.transaction_type === 'payment_out')
+
     const totalSales = salesTransactions.reduce((sum, t) => sum + t.total_amount, 0)
     const totalPurchases = purchaseTransactions.reduce((sum, t) => sum + t.total_amount, 0)
+    const totalPaymentIn = paymentInTransactions.reduce((sum, t) => sum + t.total_amount, 0)
+    const totalPaymentOut = paymentOutTransactions.reduce((sum, t) => sum + t.total_amount, 0)
     const profit = totalSales - totalPurchases
 
     return {
       total: filteredTransactions.length,
       sales: salesTransactions.length,
       purchases: purchaseTransactions.length,
+      paymentIn: paymentInTransactions.length,
+      paymentOut: paymentOutTransactions.length,
       totalSales,
       totalPurchases,
+      totalPaymentIn,
+      totalPaymentOut,
       profit
     }
   }, [filteredTransactions])
@@ -182,8 +190,10 @@ export default function TransactionExcelExporter({ transactions }: TransactionEx
               className="w-full px-3 py-2 text-sm border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
             >
               <option value="all">전체</option>
-              <option value="sales">매출</option>
-              <option value="purchase">매입</option>
+              <option value="sales">💰 매출</option>
+              <option value="purchase">📦 매입</option>
+              <option value="payment_in">💵 수금</option>
+              <option value="payment_out">💸 지급</option>
             </select>
           </div>
 
@@ -216,23 +226,31 @@ export default function TransactionExcelExporter({ transactions }: TransactionEx
       {/* 통계 정보 */}
       <div className="mb-6">
         <h4 className="text-sm font-medium text-gray-900 mb-3">📈 필터링된 데이터 통계</h4>
-        <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
+        <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
           <div className="bg-blue-50 rounded-lg p-3">
             <div className="text-lg font-bold text-blue-600">{stats.total}</div>
             <div className="text-xs text-blue-800">총 거래</div>
           </div>
-          <div className="bg-purple-50 rounded-lg p-3">
-            <div className="text-lg font-bold text-purple-600">{stats.sales}</div>
-            <div className="text-xs text-purple-800">매출 거래</div>
+          <div className="bg-green-50 rounded-lg p-3">
+            <div className="text-lg font-bold text-green-600">{stats.sales}</div>
+            <div className="text-xs text-green-800">💰 매출</div>
           </div>
-          <div className="bg-orange-50 rounded-lg p-3">
-            <div className="text-lg font-bold text-orange-600">{stats.purchases}</div>
-            <div className="text-xs text-orange-800">매입 거래</div>
+          <div className="bg-indigo-50 rounded-lg p-3">
+            <div className="text-lg font-bold text-indigo-600">{stats.purchases}</div>
+            <div className="text-xs text-indigo-800">📦 매입</div>
+          </div>
+          <div className="bg-amber-50 rounded-lg p-3">
+            <div className="text-lg font-bold text-amber-600">{stats.paymentIn}</div>
+            <div className="text-xs text-amber-800">💵 수금</div>
+          </div>
+          <div className="bg-purple-50 rounded-lg p-3">
+            <div className="text-lg font-bold text-purple-600">{stats.paymentOut}</div>
+            <div className="text-xs text-purple-800">💸 지급</div>
           </div>
         </div>
 
         {/* 금액 통계 */}
-        <div className="mt-4 grid grid-cols-1 md:grid-cols-3 gap-4">
+        <div className="mt-4 grid grid-cols-1 md:grid-cols-5 gap-4">
           <div className="bg-emerald-50 rounded-lg p-3">
             <div className="text-sm font-semibold text-emerald-600">총 매출</div>
             <div className="text-lg font-bold text-emerald-800">{formatCurrency(stats.totalSales)}</div>
@@ -241,9 +259,17 @@ export default function TransactionExcelExporter({ transactions }: TransactionEx
             <div className="text-sm font-semibold text-red-600">총 매입</div>
             <div className="text-lg font-bold text-red-800">{formatCurrency(stats.totalPurchases)}</div>
           </div>
+          <div className="bg-amber-50 rounded-lg p-3">
+            <div className="text-sm font-semibold text-amber-600">총 수금</div>
+            <div className="text-lg font-bold text-amber-800">{formatCurrency(stats.totalPaymentIn)}</div>
+          </div>
+          <div className="bg-purple-50 rounded-lg p-3">
+            <div className="text-sm font-semibold text-purple-600">총 지급</div>
+            <div className="text-lg font-bold text-purple-800">{formatCurrency(stats.totalPaymentOut)}</div>
+          </div>
           <div className={`rounded-lg p-3 ${stats.profit >= 0 ? 'bg-blue-50' : 'bg-yellow-50'}`}>
             <div className={`text-sm font-semibold ${stats.profit >= 0 ? 'text-blue-600' : 'text-yellow-600'}`}>
-              수익
+              순이익
             </div>
             <div className={`text-lg font-bold ${stats.profit >= 0 ? 'text-blue-800' : 'text-yellow-800'}`}>
               {formatCurrency(stats.profit)}

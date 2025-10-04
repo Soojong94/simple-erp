@@ -256,7 +256,7 @@ export default function Transactions() {
       .reduce((sum, t) => sum + t.total_amount, 0) || 0,
     totalPurchaseAmount: filteredTransactions?.filter(t => t.transaction_type === 'purchase')
       .reduce((sum, t) => sum + t.total_amount, 0) || 0,
-    totalPaymentAmount: filteredTransactions?.filter(t => t.transaction_type === 'payment')
+    totalPaymentAmount: filteredTransactions?.filter(t => t.transaction_type === 'payment_in')
       .reduce((sum, t) => sum + t.total_amount, 0) || 0
   }
 

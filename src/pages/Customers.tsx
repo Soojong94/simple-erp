@@ -1,6 +1,6 @@
 import { useState, useMemo, useEffect } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
-import { customerAPI } from '../lib/tauri'
+import { customerAPI, transactionAPI } from '../lib/tauri'
 import { getCurrentSession } from '../lib/auth/index'
 import { useExpandableTable } from '../hooks/useExpandableTable'
 import { usePagination } from '../hooks/usePagination'
@@ -29,6 +29,12 @@ export default function Customers() {
   const { data: customers, isLoading, error } = useQuery({
     queryKey: ['customers', session?.company_id],
     queryFn: () => customerAPI.getAll()
+  })
+
+  // 🆕 거래 내역 조회 (미지급금 계산용)
+  const { data: transactions } = useQuery({
+    queryKey: ['transactions'],
+    queryFn: () => transactionAPI.getAll()
   })
 
   const deleteMutation = useMutation({
@@ -147,6 +153,44 @@ export default function Customers() {
     pagination.resetPage()
   }, [filterType, searchQuery, sortBy, sortOrder])
 
+  // 🆕 미수금/미지급금 통계 계산
+  const financialStats = useMemo(() => {
+    if (!customers || !transactions) return { totalReceivable: 0, totalPayable: 0 }
+
+    let totalReceivable = 0  // 총 미수금 (고객으로부터 받아야 할 돈)
+    let totalPayable = 0     // 총 미지급금 (공급업체에 지급해야 할 돈)
+
+    customers.forEach(customer => {
+      const customerTransactions = transactions.filter(t => t.customer_id === customer.id)
+
+      if (customer.type === 'customer') {
+        // 고객: 미수금 계산
+        let 미수금 = 0
+        customerTransactions.forEach(t => {
+          if (t.transaction_type === 'sales') {
+            미수금 += t.total_amount
+          } else if (t.transaction_type === 'payment_in') {
+            미수금 -= t.total_amount
+          }
+        })
+        totalReceivable += Math.max(0, 미수금)
+      } else if (customer.type === 'supplier') {
+        // 공급업체: 미지급금 계산
+        let 미지급금 = 0
+        customerTransactions.forEach(t => {
+          if (t.transaction_type === 'purchase') {
+            미지급금 += t.total_amount
+          } else if (t.transaction_type === 'payment_out') {
+            미지급금 -= t.total_amount
+          }
+        })
+        totalPayable += Math.max(0, 미지급금)
+      }
+    })
+
+    return { totalReceivable, totalPayable }
+  }, [customers, transactions])
+
   if (error) {
     console.error('Customer API error:', error)
     return (
@@ -230,7 +274,7 @@ export default function Customers() {
         )}
 
         {/* 통계 카드 */}
-        <div className="mt-6 grid grid-cols-1 gap-5 sm:grid-cols-3">
+        <div className="mt-6 grid grid-cols-1 gap-5 sm:grid-cols-5">
           <div className="bg-white overflow-hidden shadow rounded-lg">
             <div className="p-5">
               <div className="flex items-center">
@@ -290,6 +334,50 @@ export default function Customers() {
                     </dt>
                     <dd className="text-lg font-medium text-gray-900">
                       {customers?.filter(c => c.type === 'supplier').length || 0}개
+                    </dd>
+                  </dl>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div className="bg-white overflow-hidden shadow rounded-lg">
+            <div className="p-5">
+              <div className="flex items-center">
+                <div className="flex-shrink-0">
+                  <div className="w-8 h-8 bg-amber-100 rounded-md flex items-center justify-center">
+                    <span className="text-amber-600 text-sm font-medium">💰</span>
+                  </div>
+                </div>
+                <div className="ml-5 w-0 flex-1">
+                  <dl>
+                    <dt className="text-sm font-medium text-gray-500 truncate">
+                      총 미수금
+                    </dt>
+                    <dd className="text-lg font-medium text-amber-600">
+                      {financialStats.totalReceivable.toLocaleString()}원
+                    </dd>
+                  </dl>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div className="bg-white overflow-hidden shadow rounded-lg">
+            <div className="p-5">
+              <div className="flex items-center">
+                <div className="flex-shrink-0">
+                  <div className="w-8 h-8 bg-purple-100 rounded-md flex items-center justify-center">
+                    <span className="text-purple-600 text-sm font-medium">💸</span>
+                  </div>
+                </div>
+                <div className="ml-5 w-0 flex-1">
+                  <dl>
+                    <dt className="text-sm font-medium text-gray-500 truncate">
+                      총 미지급금
+                    </dt>
+                    <dd className="text-lg font-medium text-purple-600">
+                      {financialStats.totalPayable.toLocaleString()}원
                     </dd>
                   </dl>
                 </div>

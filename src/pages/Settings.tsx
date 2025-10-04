@@ -432,7 +432,7 @@ export default function Settings() {
     { id: 'company' as TabType, name: '회사 정보', icon: '🏢' },
     { id: 'backup' as TabType, name: '백업 관리', icon: '💾' },
     { id: 'system' as TabType, name: '시스템 정보', icon: '⚙️' },
-    { id: 'testdata' as TabType, name: '테스트 데이터', icon: '🧪' },
+    // { id: 'testdata' as TabType, name: '테스트 데이터', icon: '🧪' },  // 배포용 숨김
     { id: 'account' as TabType, name: '계정 관리', icon: '👤' }
   ]
 

@@ -26,7 +26,7 @@ export default function TransactionModal({
   // 폼 데이터 상태
   const [formData, setFormData] = useState({
     customer_id: 0,
-    transaction_type: 'sales' as 'sales' | 'purchase' | 'payment',
+    transaction_type: 'sales' as 'sales' | 'purchase' | 'payment_in' | 'payment_out',
     transaction_date: new Date().toISOString().split('T')[0],
     due_date: '',
     notes: ''
@@ -89,14 +89,14 @@ export default function TransactionModal({
     queryFn: () => productAPI.getAll()
   })
 
-  // 🆕 최근 수금 내역 조회 (payment 타입 거래 중 미표시건)
+  // 🆕 최근 수금 내역 조회 (매출 거래용 - payment_in 타입 거래 중 미표시건)
   const { data: recentPayments } = useQuery({
     queryKey: ['recent-payments', formData.customer_id],
     queryFn: async () => {
       if (!formData.customer_id) return []
       const allTransactions = await transactionAPI.getAll()
       return allTransactions.filter(t =>
-        t.transaction_type === 'payment' &&
+        t.transaction_type === 'payment_in' &&
         t.customer_id === formData.customer_id &&
         !t.is_displayed_in_invoice  // 아직 거래증에 표시 안 된 것만
       ).sort((a, b) =>
@@ -107,6 +107,26 @@ export default function TransactionModal({
     staleTime: 0,  // 🎯 항상 최신 데이터 조회
     refetchOnMount: true,  // 🎯 마운트 시 항상 재조회
     refetchOnWindowFocus: true  // 🎯 창 포커스 시 재조회
+  })
+
+  // 🆕 최근 지급 내역 조회 (매입 거래용 - payment_out 타입 거래 중 미표시건)
+  const { data: recentPaymentOuts } = useQuery({
+    queryKey: ['recent-payment-outs', formData.customer_id],
+    queryFn: async () => {
+      if (!formData.customer_id) return []
+      const allTransactions = await transactionAPI.getAll()
+      return allTransactions.filter(t =>
+        t.transaction_type === 'payment_out' &&
+        t.customer_id === formData.customer_id &&
+        !t.is_displayed_in_invoice  // 아직 거래증에 표시 안 된 것만
+      ).sort((a, b) =>
+        new Date(b.transaction_date).getTime() - new Date(a.transaction_date).getTime()
+      )
+    },
+    enabled: formData.customer_id > 0 && formData.transaction_type === 'purchase',
+    staleTime: 0,
+    refetchOnMount: true,
+    refetchOnWindowFocus: true
   })
 
   // 🆕 선택된 수금 거래 ID
@@ -378,8 +398,8 @@ export default function TransactionModal({
   }
 
   // 계산된 값들 (VAT 포함/미포함 고려)
-  // payment 타입일 때는 수금 금액 사용
-  const totalAmount = formData.transaction_type === 'payment'
+  // payment_in/payment_out 타입일 때는 수금/지급 금액 사용
+  const totalAmount = (formData.transaction_type === 'payment_in' || formData.transaction_type === 'payment_out')
     ? paymentAmount
     : items.reduce((sum, item) => sum + item.total_price, 0)
 
@@ -388,9 +408,9 @@ export default function TransactionModal({
   const taxAmount = Math.round(isVatIncluded ? totalAmount / 11 : totalAmount * 0.1)
   const displayTotalAmount = isVatIncluded ? totalAmount : totalAmount + taxAmount
 
-  // payment 타입일 때는 상품 필요 없음
+  // payment_in/payment_out 타입일 때는 상품 필요 없음
   const isFormValid = formData.customer_id > 0 && (
-    formData.transaction_type === 'payment'
+    (formData.transaction_type === 'payment_in' || formData.transaction_type === 'payment_out')
       ? paymentAmount > 0
       : items.length > 0
   )
@@ -400,16 +420,18 @@ export default function TransactionModal({
 
     // 유효성 검사
     if (!isFormValid) {
-      if (formData.transaction_type === 'payment') {
+      if (formData.transaction_type === 'payment_in') {
         alert('거래처와 수금 금액을 입력해주세요.')
+      } else if (formData.transaction_type === 'payment_out') {
+        alert('거래처와 지급 금액을 입력해주세요.')
       } else {
         alert('거래처와 상품을 모두 입력해주세요.')
       }
       return
     }
 
-    // 상품별 유효성 검사 (payment 타입이 아닐 때만)
-    if (formData.transaction_type !== 'payment') {
+    // 상품별 유효성 검사 (payment_in/payment_out 타입이 아닐 때만)
+    if (formData.transaction_type !== 'payment_in' && formData.transaction_type !== 'payment_out') {
       for (let i = 0; i < items.length; i++) {
         const item = items[i]
         if (!item.product_id || item.quantity <= 0 || item.unit_price <= 0) {
@@ -481,14 +503,15 @@ export default function TransactionModal({
             <TransactionBasicInfo
               formData={formData}
               customers={customers}
+              transactions={allTransactions}
               onFormChange={handleFormChange}
               paymentAmount={paymentAmount}
               onPaymentAmountChange={setPaymentAmount}
             />
           </div>
 
-          {/* 거래 상품 섹션 - payment 타입일 때는 숨김 */}
-          {formData.transaction_type !== 'payment' && (
+          {/* 거래 상품 섹션 - payment_in/payment_out 타입일 때는 숨김 */}
+          {formData.transaction_type !== 'payment_in' && formData.transaction_type !== 'payment_out' && (
             <div className="p-6 border-b border-gray-200">
               <div className="flex justify-between items-center mb-4">
                 <h3 className="text-lg font-medium text-gray-900">거래 상품</h3>
@@ -515,7 +538,7 @@ export default function TransactionModal({
               />
             </div>)}
 
-          {/* 🆕 최근 수금 내역 - 맨 마지막으로 이동 */}
+          {/* 🆕 최근 수금 내역 (매출 거래용) */}
           {formData.transaction_type === 'sales' && recentPayments && recentPayments.length > 0 && (
             <div className="p-6 border-b border-gray-200 bg-gradient-to-r from-green-50 to-emerald-50">
               <div className="border-2 border-green-400 rounded-lg p-5 shadow-md">
@@ -565,6 +588,62 @@ export default function TransactionModal({
                 <div className="mt-4 p-3 bg-green-100 border border-green-300 rounded-lg">
                   <p className="text-sm text-green-800 font-medium">
                     ✅ 선택한 수금 내역이 거래증에 함께 인쇄됩니다
+                  </p>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* 🆕 최근 지급 내역 (매입 거래용) */}
+          {formData.transaction_type === 'purchase' && recentPaymentOuts && recentPaymentOuts.length > 0 && (
+            <div className="p-6 border-b border-gray-200 bg-gradient-to-r from-purple-50 to-violet-50">
+              <div className="border-2 border-purple-400 rounded-lg p-5 shadow-md">
+                <div className="flex items-center mb-4">
+                  <div className="w-12 h-12 bg-purple-500 rounded-full flex items-center justify-center mr-3">
+                    <span className="text-2xl">💸</span>
+                  </div>
+                  <div>
+                    <h4 className="text-lg font-bold text-purple-900">미처리 지급 내역</h4>
+                    <p className="text-sm text-purple-700">거래증에 표시할 지급 내역을 선택하세요 ({recentPaymentOuts.length}건)</p>
+                  </div>
+                </div>
+
+                <div className="space-y-2">
+                  {recentPaymentOuts.map(payment => (
+                    <label
+                      key={payment.id}
+                      className="flex items-center p-4 bg-white border-2 border-purple-200 rounded-lg hover:border-purple-400 hover:shadow-md cursor-pointer transition-all"
+                    >
+                      <input
+                        type="checkbox"
+                        checked={selectedPaymentId === payment.id}
+                        onChange={(e) => setSelectedPaymentId(e.target.checked ? payment.id! : null)}
+                        className="h-5 w-5 text-purple-600 focus:ring-purple-500 border-gray-300 rounded mr-4"
+                      />
+                      <div className="flex-1">
+                        <div className="flex items-center justify-between">
+                          <span className="font-semibold text-gray-900 text-base">
+                            📅 {new Date(payment.transaction_date).toLocaleDateString('ko-KR', {
+                              year: 'numeric',
+                              month: 'long',
+                              day: 'numeric'
+                            })}
+                          </span>
+                          <span className="text-2xl font-bold text-purple-600">
+                            -{payment.total_amount.toLocaleString()}원
+                          </span>
+                        </div>
+                        <span className="text-xs text-gray-500 mt-1 inline-block">
+                          거래 ID: #{payment.id}
+                        </span>
+                      </div>
+                    </label>
+                  ))}
+                </div>
+
+                <div className="mt-4 p-3 bg-purple-100 border border-purple-300 rounded-lg">
+                  <p className="text-sm text-purple-800 font-medium">
+                    ✅ 선택한 지급 내역이 거래증에 함께 인쇄됩니다
                   </p>
                 </div>
               </div>

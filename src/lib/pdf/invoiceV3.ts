@@ -37,11 +37,16 @@ function createInvoiceHTMLV3(invoiceData: InvoiceData, copyType: 'supplier' | 'c
   const stampKey = companyId ? `simple-erp-c${companyId}-stamp-image` : 'simple-erp-stamp-image'
   const stampImage = localStorage.getItem(stampKey) || ''
 
-  // 입금액, 합계액, 미수금, 현잔액
+  // 입금액/지급액, 합계액, 미수금/미지급금, 현잔액
   const 입금액 = paymentInfo.입금액
   const 합계액 = paymentInfo.합계액
   const 미수금 = paymentInfo.미수금
   const 현잔액 = paymentInfo.현잔액
+
+  // 🆕 매출/매입 구분
+  const isSales = transaction.transaction_type === 'sales'
+  const paymentLabel = isSales ? '입금액' : '지급액'
+  const balanceLabel = isSales ? '미수금' : '미지급금'
 
   // 테이블 행 생성 (최대 14줄, 빈 줄 포함)
   const maxRows = 14
@@ -56,12 +61,13 @@ function createInvoiceHTMLV3(invoiceData: InvoiceData, copyType: 'supplier' | 'c
       <tr class="${rowClass}">
         <td class="text-center" style="width: 20px; border: 0.5px solid #ddd; padding: 4px 2px; font-size: 7.5px; vertical-align: middle;">${index + 1}</td>
         <td style="width: 70px; border: 0.5px solid #ddd; padding: 4px 2px; font-size: 7.5px; vertical-align: middle;">${item.product_name}</td>
-        <td class="text-center" style="width: 100px; border: 0.5px solid #ddd; padding: 4px 2px; font-size: 7.5px; vertical-align: middle;">${item.traceability_number || '-'}</td>
-        <td class="text-center" style="width: 45px; border: 0.5px solid #ddd; padding: 4px 2px; font-size: 7.5px; vertical-align: middle;">${item.origin || '-'}</td>
-        <td class="text-center" style="width: 80px; border: 0.5px solid #ddd; padding: 4px 2px; font-size: 7.5px; vertical-align: middle;">${item.slaughterhouse || '-'}</td>
-        <td class="text-right" style="width: 40px; border: 0.5px solid #ddd; padding: 4px 2px; font-size: 7.5px; vertical-align: middle;">${item.quantity.toFixed(2)}</td>
-        <td class="text-right" style="width: 60px; border: 0.5px solid #ddd; padding: 4px 2px; font-size: 7.5px; vertical-align: middle;">${formatCurrency(item.unit_price)}</td>
-        <td class="text-right" style="width: 70px; border: 0.5px solid #ddd; padding: 4px 2px; font-size: 7.5px; vertical-align: middle;">${formatCurrency(공급가액)}</td>
+        <td class="text-center" style="width: 90px; border: 0.5px solid #ddd; padding: 4px 2px; font-size: 7.5px; vertical-align: middle;">${item.traceability_number || '-'}</td>
+        <td class="text-center" style="width: 40px; border: 0.5px solid #ddd; padding: 4px 2px; font-size: 7.5px; vertical-align: middle;">${item.origin || '-'}</td>
+        <td class="text-center" style="width: 75px; border: 0.5px solid #ddd; padding: 4px 2px; font-size: 7.5px; vertical-align: middle;">${item.slaughterhouse || '-'}</td>
+        <td class="text-right" style="width: 35px; border: 0.5px solid #ddd; padding: 4px 2px; font-size: 7.5px; vertical-align: middle;">${item.quantity.toFixed(2)}</td>
+        <td class="text-center" style="width: 25px; border: 0.5px solid #ddd; padding: 4px 2px; font-size: 7.5px; vertical-align: middle;">${item.unit}</td>
+        <td class="text-right" style="width: 55px; border: 0.5px solid #ddd; padding: 4px 2px; font-size: 7.5px; vertical-align: middle;">${formatCurrency(item.unit_price)}</td>
+        <td class="text-right" style="width: 65px; border: 0.5px solid #ddd; padding: 4px 2px; font-size: 7.5px; vertical-align: middle;">${formatCurrency(공급가액)}</td>
         <td style="width: 45px; border: 0.5px solid #ddd; padding: 4px 2px; font-size: 7.5px; vertical-align: middle;">${item.notes || ''}</td>
       </tr>
     `)
@@ -74,6 +80,7 @@ function createInvoiceHTMLV3(invoiceData: InvoiceData, copyType: 'supplier' | 'c
     itemRows.push(`
       <tr class="${rowClass}">
         <td style="border: 0.5px solid #ddd; padding: 4px 2px; vertical-align: middle;">&nbsp;</td>
+        <td style="border: 0.5px solid #ddd; padding: 4px 2px; vertical-align: middle;"></td>
         <td style="border: 0.5px solid #ddd; padding: 4px 2px; vertical-align: middle;"></td>
         <td style="border: 0.5px solid #ddd; padding: 4px 2px; vertical-align: middle;"></td>
         <td style="border: 0.5px solid #ddd; padding: 4px 2px; vertical-align: middle;"></td>
@@ -223,6 +230,7 @@ function createInvoiceHTMLV3(invoiceData: InvoiceData, copyType: 'supplier' | 'c
             <th style="border: 0.5px solid #ddd; padding: 5px 2px; font-size: 7.5px; vertical-align: middle;">원산지</th>
             <th style="border: 0.5px solid #ddd; padding: 5px 2px; font-size: 7.5px; vertical-align: middle;">도축장</th>
             <th style="border: 0.5px solid #ddd; padding: 5px 2px; font-size: 7.5px; vertical-align: middle;">수량</th>
+            <th style="border: 0.5px solid #ddd; padding: 5px 2px; font-size: 7.5px; vertical-align: middle;">단위</th>
             <th style="border: 0.5px solid #ddd; padding: 5px 2px; font-size: 7.5px; vertical-align: middle;">단가</th>
             <th style="border: 0.5px solid #ddd; padding: 5px 2px; font-size: 7.5px; vertical-align: middle;">공급가액</th>
             <th style="border: 0.5px solid #ddd; padding: 5px 2px; font-size: 7.5px; vertical-align: middle;">기타</th>
@@ -250,7 +258,7 @@ function createInvoiceHTMLV3(invoiceData: InvoiceData, copyType: 'supplier' | 'c
           </div>
         </div>
 
-        <!-- 중앙: 입금액/미수금 -->
+        <!-- 중앙: 입금액/미수금 (매출) 또는 지급액/미지급금 (매입) -->
         <div style="
           width: 140px;
           border: 1px solid ${copyType === 'customer' ? '#2563eb' : '#dc2626'};
@@ -258,11 +266,11 @@ function createInvoiceHTMLV3(invoiceData: InvoiceData, copyType: 'supplier' | 'c
         ">
           <table style="width: 100%; font-size: 10px; border-collapse: collapse;">
             <tr style="background: ${copyType === 'customer' ? '#dbeafe' : '#fecaca'};">
-              <td style="border: 1px solid ${copyType === 'customer' ? '#2563eb' : '#dc2626'}; padding: 4px; font-weight: bold; text-align: center; width: 50%;">입금액</td>
+              <td style="border: 1px solid ${copyType === 'customer' ? '#2563eb' : '#dc2626'}; padding: 4px; font-weight: bold; text-align: center; width: 50%;">${paymentLabel}</td>
               <td style="border: 1px solid ${copyType === 'customer' ? '#2563eb' : '#dc2626'}; padding: 4px; text-align: right; width: 50%;">${formatCurrency(입금액)}</td>
             </tr>
             <tr style="background: white;">
-              <td style="border: 1px solid ${copyType === 'customer' ? '#2563eb' : '#dc2626'}; padding: 4px; font-weight: bold; text-align: center;">미수금</td>
+              <td style="border: 1px solid ${copyType === 'customer' ? '#2563eb' : '#dc2626'}; padding: 4px; font-weight: bold; text-align: center;">${balanceLabel}</td>
               <td style="border: 1px solid ${copyType === 'customer' ? '#2563eb' : '#dc2626'}; padding: 4px; text-align: right;">${formatCurrency(미수금)}</td>
             </tr>
           </table>

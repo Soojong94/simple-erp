@@ -91,18 +91,19 @@ export interface Transaction {
   id?: number
   customer_id: number
   customer_name?: string  // 조인 결과용
-  transaction_type: 'sales' | 'purchase' | 'payment'  // 🆕 payment 추가
+  transaction_type: 'sales' | 'purchase' | 'payment_in' | 'payment_out'  // payment_in: 수금, payment_out: 지급
   transaction_date: string
   due_date?: string
   total_amount: number
   tax_amount: number
   notes?: string
   created_at?: string
-  
-  // 🆕 수금 거래 참조 관련
-  reference_payment_id?: number  // 참조하는 수금 거래 ID
+
+  // 🆕 수금/지급 거래 참조 관련
+  reference_payment_id?: number  // 참조하는 수금/지급 거래 ID
   is_displayed_in_invoice?: boolean  // 거래증에 표시되었는지
   displayed_in_transaction_id?: number  // 어느 거래에 표시되었는지
+  current_balance?: number  // 현잔액 (매출: 미수금, 매입: 미지급금)
 }
 
 export interface TransactionItem {
@@ -124,7 +125,7 @@ export interface TransactionWithItems {
   id?: number
   customer_id: number
   customer_name: string
-  transaction_type: 'sales' | 'purchase' | 'payment'  // 🆕 payment 추가
+  transaction_type: 'sales' | 'purchase' | 'payment_in' | 'payment_out'  // payment_in: 수금, payment_out: 지급
   transaction_date: string
   due_date?: string
   total_amount: number
@@ -134,11 +135,12 @@ export interface TransactionWithItems {
   created_at?: string
   updated_at?: string  // 🆕 추가
   items: TransactionItem[]
-  
-  // 🆕 수금 거래 참조 관련
-  reference_payment_id?: number  // 참조하는 수금 거래 ID
-  is_displayed_in_invoice?: boolean  // 거래증에 표시되었는지 (payment 타입만)
-  displayed_in_transaction_id?: number  // 어느 거래에 표시되었는지 (payment 타입만)
+
+  // 🆕 수금/지급 거래 참조 관련
+  reference_payment_id?: number  // 참조하는 수금/지급 거래 ID
+  is_displayed_in_invoice?: boolean  // 거래증에 표시되었는지 (payment_in/payment_out 타입만)
+  displayed_in_transaction_id?: number  // 어느 거래에 표시되었는지 (payment_in/payment_out 타입만)
+  current_balance?: number  // 현잔액 (매출: 미수금, 매입: 미지급금)
 }
 
 export interface TaxInvoice {

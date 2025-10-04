@@ -112,7 +112,7 @@ export const transactionAPI = {
         }
       }
       // 🆕 수금 처리: 미수금 감소
-      else if (transactionData.transaction_type === 'payment' && customer) {
+      else if (transactionData.transaction_type === 'payment_in' && customer) {
         
         const customerIndex = customers.findIndex(c => c.id === transactionData.customer_id)
         
@@ -129,7 +129,7 @@ export const transactionAPI = {
           console.error(`❌ 거래처를 찾을 수 없음: customer_id=${transactionData.customer_id}`)
         }
       } else {
-        if (transactionData.transaction_type !== 'sales' && transactionData.transaction_type !== 'payment') {
+        if (transactionData.transaction_type !== 'sales' && transactionData.transaction_type !== 'payment_in') {
         }
         if (!customer) {
         }
@@ -217,7 +217,7 @@ export const transactionAPI = {
           }
           
           // 수금 거래 삭제 → 미수금 증가 (복원)
-          else if (transactionToDelete.transaction_type === 'payment') {
+          else if (transactionToDelete.transaction_type === 'payment_in') {
             const newBalance = currentBalance + Number(transactionToDelete.total_amount)
             customers[customerIndex].outstanding_balance = newBalance
             

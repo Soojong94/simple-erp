@@ -25,7 +25,8 @@ export default function TransactionExpandableRow({
   const getTransactionTypeDisplay = (type: string) => {
     if (type === 'sales') return '💰 매출'
     if (type === 'purchase') return '📦 매입'
-    if (type === 'payment') return '💵 수금'
+    if (type === 'payment_in') return '💵 수금'
+    if (type === 'payment_out') return '💸 지급'
     return '❓ 기타'
   }
 
@@ -34,11 +35,13 @@ export default function TransactionExpandableRow({
       {/* 기본 테이블 행 */}
       <tr 
         className={`hover:opacity-90 cursor-pointer transition-all duration-150 ${
-          transaction.transaction_type === 'sales' 
+          transaction.transaction_type === 'sales'
             ? 'bg-green-50'  // 🌿 매출: 연한 초록
             : transaction.transaction_type === 'purchase'
             ? 'bg-blue-50'   // 📦 매입: 연한 파란
-            : 'bg-amber-50'  // 💵 수금: 연한 황금
+            : transaction.transaction_type === 'payment_in'
+            ? 'bg-amber-50'  // 💵 수금: 연한 황금
+            : 'bg-purple-50'  // 💸 지급: 연한 보라
         }`}
         onClick={onToggle}
       >
@@ -55,11 +58,13 @@ export default function TransactionExpandableRow({
         </td>
         <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
           <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
-            transaction.transaction_type === 'sales' 
-              ? 'bg-green-100 text-green-800' 
+            transaction.transaction_type === 'sales'
+              ? 'bg-green-100 text-green-800'
               : transaction.transaction_type === 'purchase'
               ? 'bg-blue-100 text-blue-800'
-              : 'bg-amber-100 text-amber-800'
+              : transaction.transaction_type === 'payment_in'
+              ? 'bg-amber-100 text-amber-800'
+              : 'bg-purple-100 text-purple-800'
           }`}>
             {getTransactionTypeDisplay(transaction.transaction_type)}
           </span>

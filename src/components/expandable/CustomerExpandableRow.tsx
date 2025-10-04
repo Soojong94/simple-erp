@@ -34,12 +34,26 @@ export default function CustomerExpandableRow({
   const totalSales = customerTransactions
     .filter(t => t.transaction_type === 'sales')
     .reduce((sum, t) => sum + t.total_amount, 0)
-  
+
   const totalPurchase = customerTransactions
-    .filter(t => t.transaction_type === 'purchase')  
+    .filter(t => t.transaction_type === 'purchase')
     .reduce((sum, t) => sum + t.total_amount, 0)
 
   const totalTransactions = customerTransactions.length
+
+  // 🆕 미수금 계산 (고객)
+  const 미수금 = customerTransactions.reduce((sum, t) => {
+    if (t.transaction_type === 'sales') return sum + t.total_amount
+    if (t.transaction_type === 'payment_in') return sum - t.total_amount
+    return sum
+  }, 0)
+
+  // 🆕 미지급금 계산 (공급업체)
+  const 미지급금 = customerTransactions.reduce((sum, t) => {
+    if (t.transaction_type === 'purchase') return sum + t.total_amount
+    if (t.transaction_type === 'payment_out') return sum - t.total_amount
+    return sum
+  }, 0)
 
   return (
     <>
@@ -164,15 +178,30 @@ export default function CustomerExpandableRow({
                   <CardSection title="거래 통계" icon="📈">
                     {/* 🆕 미수금 섹션 (고객일 때만) */}
                     {customer.type === 'customer' && (
-                      <div className="bg-gradient-to-r from-blue-50 to-indigo-50 p-4 rounded-lg border-2 border-blue-300 mb-4">
+                      <div className="bg-gradient-to-r from-amber-50 to-yellow-50 p-4 rounded-lg border-2 border-amber-400 mb-4">
                         <div className="text-sm text-gray-600 mb-1">💰 현재 미수금</div>
-                        <div className="text-3xl font-bold text-blue-700">
-                          {formatCurrency(customer.outstanding_balance || 0)}
+                        <div className="text-3xl font-bold text-amber-700">
+                          {formatCurrency(Math.max(0, 미수금))}
                         </div>
                         <div className="text-xs text-gray-500 mt-2">
-                          {(customer.outstanding_balance || 0) > 0 
-                            ? '⚠️ 수금이 필요합니다' 
+                          {미수금 > 0
+                            ? '⚠️ 수금이 필요합니다'
                             : '✅ 미수금이 없습니다'}
+                        </div>
+                      </div>
+                    )}
+
+                    {/* 🆕 미지급금 섹션 (공급업체일 때만) */}
+                    {customer.type === 'supplier' && (
+                      <div className="bg-gradient-to-r from-purple-50 to-violet-50 p-4 rounded-lg border-2 border-purple-400 mb-4">
+                        <div className="text-sm text-gray-600 mb-1">💸 현재 미지급금</div>
+                        <div className="text-3xl font-bold text-purple-700">
+                          {formatCurrency(Math.max(0, 미지급금))}
+                        </div>
+                        <div className="text-xs text-gray-500 mt-2">
+                          {미지급금 > 0
+                            ? '⚠️ 지급이 필요합니다'
+                            : '✅ 미지급금이 없습니다'}
                         </div>
                       </div>
                     )}

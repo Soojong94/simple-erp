@@ -56,15 +56,12 @@ async function calculatePaymentInfo(
   let 미수금 = 0
   const 사용된_수금 = new Set<number>()
 
-  console.log(`\n📊 [${transaction.id}번 거래] 미수금 계산 시작:`)
-
   for (const t of customerTransactions) {
     // 현재 거래에 도달하면 중단
     if (t.id === transaction.id) break
 
     // 매출 거래: 미수금 증가
     if (t.transaction_type === 'sales') {
-      const 이전_미수금 = 미수금
       미수금 = 미수금 + t.total_amount
 
       // 이 매출에 연결된 입금액이 있고, 아직 사용 안 한 수금이면 차감
@@ -73,19 +70,10 @@ async function calculatePaymentInfo(
         if (payment) {
           미수금 = 미수금 - payment.total_amount
           사용된_수금.add(t.reference_payment_id)
-          console.log(`  거래 ${t.id}: ${이전_미수금} + 매출 ${t.total_amount} - 입금 ${payment.total_amount} = ${미수금}`)
-        } else {
-          console.log(`  거래 ${t.id}: ${이전_미수금} + 매출 ${t.total_amount} = ${미수금} (수금 못 찾음)`)
         }
-      } else if (t.reference_payment_id && 사용된_수금.has(t.reference_payment_id)) {
-        console.log(`  거래 ${t.id}: ${이전_미수금} + 매출 ${t.total_amount} = ${미수금} (수금 중복)`)
-      } else {
-        console.log(`  거래 ${t.id}: ${이전_미수금} + 매출 ${t.total_amount} = ${미수금}`)
       }
     }
   }
-
-  console.log(`  → 현재 거래의 미수금: ${미수금}\n`)
 
   // 매출 거래인 경우
   if (transaction.transaction_type === 'sales') {
@@ -96,7 +84,6 @@ async function calculatePaymentInfo(
     if (transaction.reference_payment_id) {
       // ✅ 이미 사용된 수금이면 입금액 0으로 처리
       if (사용된_수금.has(transaction.reference_payment_id)) {
-        console.warn(`⚠️ 거래 ${transaction.id}의 수금 ${transaction.reference_payment_id}은 이미 다른 거래에서 사용됨`)
         입금액 = 0
       } else {
         try {
@@ -124,7 +111,64 @@ async function calculatePaymentInfo(
     }
   }
 
-  // 매입 거래는 입금/미수금 표시 안 함
+  // 🆕 매입 거래인 경우 (미지급금 계산)
+  if (transaction.transaction_type === 'purchase') {
+    // 🎯 현재 거래의 미지급금 = 이전 모든 매입 거래의 누적 현잔액
+    let 미지급금 = 0
+    const 사용된_지급 = new Set<number>()
+
+    for (const t of customerTransactions) {
+      if (t.id === transaction.id) break
+
+      // 매입 거래: 미지급금 증가
+      if (t.transaction_type === 'purchase') {
+        미지급금 = 미지급금 + t.total_amount
+
+        // 이 매입에 연결된 지급액이 있고, 아직 사용 안 한 지급이면 차감
+        if (t.reference_payment_id && !사용된_지급.has(t.reference_payment_id)) {
+          const payment = customerTransactions.find(p => p.id === t.reference_payment_id)
+          if (payment) {
+            미지급금 = 미지급금 - payment.total_amount
+            사용된_지급.add(t.reference_payment_id)
+          }
+        }
+      }
+    }
+
+    // 1️⃣ 현재 거래의 지급액 = reference_payment_id가 있고, 이전 거래에서 사용 안 했으면
+    let 지급액 = 0
+    let paymentDate: string | undefined
+
+    if (transaction.reference_payment_id) {
+      if (사용된_지급.has(transaction.reference_payment_id)) {
+        지급액 = 0
+      } else {
+        try {
+          const payment = await transactionAPI.getById(transaction.reference_payment_id)
+          if (payment) {
+            지급액 = payment.total_amount
+            paymentDate = payment.transaction_date
+          }
+        } catch (error) {
+          console.error('지급 정보 조회 실패:', error)
+        }
+      }
+    }
+
+    // 2️⃣ 계산
+    const 합계액 = transaction.total_amount
+    const 현잔액 = 미지급금 + 합계액 - 지급액
+
+    return {
+      입금액: 지급액,  // UI에서는 "지급액"으로 표시
+      미수금: 미지급금,  // UI에서는 "미지급금"으로 표시
+      합계액,
+      현잔액,
+      paymentDate
+    }
+  }
+
+  // payment_in/payment_out 거래는 입금/미수금 표시 안 함
   return {
     입금액: 0,
     미수금: 0,
