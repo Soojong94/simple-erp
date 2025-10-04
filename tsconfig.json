@@ -27,5 +27,6 @@
     }
   },
   "include": ["src/**/*"],
+  "exclude": ["src/lib/pdf/deprecated/**/*"],
   "references": [{ "path": "./tsconfig.node.json" }]
 }
