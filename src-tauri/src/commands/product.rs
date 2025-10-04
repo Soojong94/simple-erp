@@ -5,7 +5,8 @@ use crate::services::product;
 use tauri::State;
 
 #[tauri::command]
-pub async fn get_products(db: State<'_, DbPool>, active_only: bool) -> Result<Vec<Product>, String> {
+pub async fn get_products(db: State<'_, DbPool>, active_only: Option<bool>) -> Result<Vec<Product>, String> {
+    let active_only = active_only.unwrap_or(true);
     product::get_products(&db, active_only).await.map_err(|e| e.to_string())
 }
 
@@ -30,11 +31,13 @@ pub async fn delete_product(db: State<'_, DbPool>, id: i64) -> Result<(), String
 }
 
 #[tauri::command]
-pub async fn search_products(db: State<'_, DbPool>, query: String, active_only: bool) -> Result<Vec<Product>, String> {
+pub async fn search_products(db: State<'_, DbPool>, query: String, active_only: Option<bool>) -> Result<Vec<Product>, String> {
+    let active_only = active_only.unwrap_or(true);
     product::search_products(&db, &query, active_only).await.map_err(|e| e.to_string())
 }
 
 #[tauri::command]
-pub async fn get_products_by_category(db: State<'_, DbPool>, category: String, active_only: bool) -> Result<Vec<Product>, String> {
+pub async fn get_products_by_category(db: State<'_, DbPool>, category: String, active_only: Option<bool>) -> Result<Vec<Product>, String> {
+    let active_only = active_only.unwrap_or(true);
     product::get_products_by_category(&db, &category, active_only).await.map_err(|e| e.to_string())
 }

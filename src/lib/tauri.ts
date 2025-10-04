@@ -513,12 +513,12 @@ export const inventoryAPI = {
 
   processTransactionInventory: async (transaction: TransactionWithItems) => {
     if (!transaction.items || transaction.items.length === 0) return
-    
-    
+
     for (const item of transaction.items) {
       if (!item.product_id) continue
-      
+
       if (transaction.transaction_type === 'purchase') {
+        // 🆕 단순 입고: 재고 증가만
         await inventoryAPI.createMovement({
           product_id: item.product_id,
           movement_type: 'in',
@@ -528,61 +528,35 @@ export const inventoryAPI = {
           reference_type: 'purchase',
           reference_id: transaction.id,
           traceability_number: item.traceability_number,
-          origin: item.origin,                    // ✅ 원산지 추가
-          slaughterhouse: item.slaughterhouse,    // ✅ 도축장 추가
+          origin: item.origin,
+          slaughterhouse: item.slaughterhouse,
           notes: `매입 거래 자동 입고 - ${transaction.customer_name}`
         })
-        
-        const expiryDate = new Date(transaction.transaction_date)
-        expiryDate.setDate(expiryDate.getDate() + 7)
-        
-        await inventoryAPI.createLot({
-          product_id: item.product_id,
-          lot_number: `LOT-${transaction.transaction_date}-${item.product_id}-${transaction.id}`,
-          initial_quantity: item.quantity,
-          remaining_quantity: item.quantity,
-          expiry_date: expiryDate.toISOString().split('T')[0],
-          traceability_number: item.traceability_number,
-          supplier_id: transaction.customer_id,
-          status: 'active'
-        })
-        
-        
+
+        // ⚠️ 로트 생성 제거 - 단순 재고 관리
+
       } else if (transaction.transaction_type === 'sales') {
-        const activeLots = await inventoryAPI.getActiveLots(item.product_id)
-        let remainingQty = item.quantity
-        
-        for (const lot of activeLots) {
-          if (remainingQty <= 0) break
-          
-          const deductQty = Math.min(remainingQty, lot.remaining_quantity)
-          
-          await inventoryAPI.updateLot(lot.id!, {
-            remaining_quantity: lot.remaining_quantity - deductQty
-          })
-          
-          await inventoryAPI.createMovement({
-            product_id: item.product_id,
-            movement_type: 'out',
-            quantity: deductQty,
-            lot_number: lot.lot_number,
-            transaction_id: transaction.id,
-            reference_type: 'sales',
-            reference_id: transaction.id,
-            origin: item.origin,                    // ✅ 원산지 추가
-            slaughterhouse: item.slaughterhouse,    // ✅ 도축장 추가
-            notes: `매출 거래 자동 출고 - ${transaction.customer_name} (LOT: ${lot.lot_number})`
-          })
-          
-          remainingQty -= deductQty
+        // 🆕 단순 출고: 재고 감소만 (재고 부족 체크)
+        const inventory = await inventoryAPI.getByProductId(item.product_id).catch(() => null)
+
+        if (!inventory || inventory.current_stock < item.quantity) {
+          console.warn(`⚠️ 재고 부족: ${item.product_name} - 현재: ${inventory?.current_stock || 0}kg, 요청: ${item.quantity}kg`)
+          // 경고만 출력하고 진행 (기존 동작 유지)
         }
-        
-        if (remainingQty > 0) {
-          console.warn(`⚠️ 재고 부족: ${item.product_name} - 요청: ${item.quantity}kg, 가용: ${item.quantity - remainingQty}kg`)
-        }
+
+        await inventoryAPI.createMovement({
+          product_id: item.product_id,
+          movement_type: 'out',
+          quantity: item.quantity,
+          transaction_id: transaction.id,
+          reference_type: 'sales',
+          reference_id: transaction.id,
+          origin: item.origin,
+          slaughterhouse: item.slaughterhouse,
+          notes: `매출 거래 자동 출고 - ${transaction.customer_name}`
+        })
       }
     }
-    
   }
 }
 

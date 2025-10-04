@@ -1,5 +1,6 @@
 import type { User, UserSession, LoginCredentials, RegisterData, DeleteAccountResult } from '../../types'
-import { hashPassword, verifyPassword, generateSessionToken, getSessionExpiry, isSessionValid, checkLoginAttempts, recordLoginAttempt } from './utils'
+import { hashPassword, hashPasswordSecure, verifyPassword, generateSessionToken, getSessionExpiry, isSessionValid, checkLoginAttempts, recordLoginAttempt } from './utils'
+import { sanitizeText, isValidEmail, isValidUsername, checkPasswordStrength } from '../sanitize'
 
 // localStorage 키
 const STORAGE_KEYS = {
@@ -91,8 +92,9 @@ export async function login(credentials: LoginCredentials): Promise<{
     }
   }
   
-  // 비밀번호 확인
-  if (!verifyPassword(password, user.password_hash)) {
+  // 비밀번호 확인 (async)
+  const isPasswordValid = await verifyPassword(password, user.password_hash)
+  if (!isPasswordValid) {
     recordLoginAttempt(username, false)
     return {
       success: false,
@@ -139,23 +141,52 @@ export async function register(data: RegisterData): Promise<{
   error?: string
 }> {
   const { username, password, display_name, company_name, email } = data
-  
-  // 입력 검증
-  if (!username || username.length < 3) {
+
+  // 🔐 보안 강화된 입력 검증
+
+  // 사용자명 검증
+  if (!username || username.trim().length < 3) {
     return { success: false, error: '사용자명은 3자 이상이어야 합니다.' }
   }
-  
-  if (!password || password.length < 4) {
-    return { success: false, error: '비밀번호는 4자 이상이어야 합니다.' }
+
+  if (!isValidUsername(username)) {
+    return { success: false, error: '사용자명은 영문, 숫자, 언더스코어만 사용할 수 있습니다 (3-20자).' }
   }
-  
-  if (!display_name || !company_name) {
-    return { success: false, error: '표시명과 회사명은 필수입니다.' }
+
+  // 비밀번호 강도 검증
+  const passwordCheck = checkPasswordStrength(password)
+  if (!passwordCheck.isValid) {
+    return { success: false, error: passwordCheck.feedback[0] }
   }
-  
+
+  // 표시명 검증
+  if (!display_name || display_name.trim().length === 0) {
+    return { success: false, error: '표시명은 필수입니다.' }
+  }
+
+  const sanitized_display_name = sanitizeText(display_name, 100)
+  if (sanitized_display_name.length === 0) {
+    return { success: false, error: '유효하지 않은 표시명입니다.' }
+  }
+
+  // 회사명 검증
+  if (!company_name || company_name.trim().length === 0) {
+    return { success: false, error: '회사명은 필수입니다.' }
+  }
+
+  const sanitized_company_name = sanitizeText(company_name, 200)
+  if (sanitized_company_name.length === 0) {
+    return { success: false, error: '유효하지 않은 회사명입니다.' }
+  }
+
+  // 이메일 검증 (선택사항)
+  if (email && !isValidEmail(email)) {
+    return { success: false, error: '유효하지 않은 이메일 형식입니다.' }
+  }
+
   // 중복 확인
   const users = getFromStorage<User[]>(STORAGE_KEYS.USERS, [])
-  if (users.some(u => u.username === username)) {
+  if (users.some(u => u.username.toLowerCase() === username.toLowerCase())) {
     return { success: false, error: '이미 존재하는 사용자명입니다.' }
   }
   
@@ -163,20 +194,23 @@ export async function register(data: RegisterData): Promise<{
   const companies = getFromStorage(STORAGE_KEYS.COMPANIES, [])
   const newCompany = {
     id: getNextId('company'),
-    name: company_name,
+    name: sanitized_company_name,
     created_at: new Date().toISOString(),
     created_by: username
   }
   companies.push(newCompany)
   setToStorage(STORAGE_KEYS.COMPANIES, companies)
-  
+
+  // 🆕 보안 강화된 비밀번호 해싱 사용
+  const password_hash = await hashPasswordSecure(password)
+
   // 사용자 생성
   const newUser: User = {
     id: getNextId('user'),
-    username,
-    display_name,
-    email,
-    password_hash: hashPassword(password),
+    username: username.trim(),
+    display_name: sanitized_display_name,
+    email: email?.trim() || undefined,
+    password_hash,
     role: 'admin', // 첫 번째 사용자는 관리자
     company_id: newCompany.id,
     is_active: true,
@@ -262,8 +296,9 @@ export async function deleteAccount(password: string): Promise<{
     }
   }
   
-  // 3. 비밀번호 확인
-  if (!verifyPassword(password, user.password_hash)) {
+  // 3. 비밀번호 확인 (async)
+  const isPasswordValid = await verifyPassword(password, user.password_hash)
+  if (!isPasswordValid) {
     return { success: false, error: '비밀번호가 올바르지 않습니다.' }
   }
   

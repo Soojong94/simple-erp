@@ -237,6 +237,7 @@ export interface ProductInventory {
   current_stock: number           // 현재 재고 (kg)
   safety_stock: number            // 안전 재고 (kg)
   location?: 'frozen' | 'cold' | 'room'  // 냉동/냉장/상온
+  expiry_date?: string            // 🆕 유통기한 (단순 재고 관리용)
   last_updated: string
 }
 
@@ -254,7 +255,7 @@ export interface StockMovement {
   origin?: string                 // 🆕 원산지 (선택사항)
   slaughterhouse?: string         // 🆕 도축장 (선택사항)
   transaction_id?: number         // 연결된 거래 ID
-  reference_type?: 'purchase' | 'sales' | 'manual' | 'adjustment'
+  reference_type?: 'purchase' | 'sales' | 'manual' | 'adjustment' | 'cancellation'  // 🆕 취소 추가
   reference_id?: number           // 참조 ID
   notes?: string
   created_at: string

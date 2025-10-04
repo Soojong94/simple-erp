@@ -656,15 +656,6 @@ const debouncedSearch = debounce(handleSearch, 300)
 
 ---
 
-## 기여 가이드
-
-1. Fork the repository
-2. Create your feature branch (`git checkout -b feature/AmazingFeature`)
-3. Commit your changes (`git commit -m 'Add some AmazingFeature'`)
-4. Push to the branch (`git push origin feature/AmazingFeature`)
-5. Open a Pull Request
-
----
 
 ## 라이선스
 
@@ -672,9 +663,52 @@ MIT License
 
 ---
 
+## 보안
+
+### 🔐 보안 기능
+
+**v1.1부터 프로덕션 배포를 위한 보안 강화:**
+
+**인증 보안**
+- ✅ PBKDF2 기반 비밀번호 해싱 (100,000 iterations)
+- ✅ Salt 적용 (레인보우 테이블 공격 방지)
+- ✅ 암호학적으로 안전한 세션 토큰 (Web Crypto API)
+- ✅ 브루트포스 공격 방지 (5회 실패 시 5분 잠금)
+- ✅ 세션 만료 관리 (24시간)
+
+**입력값 검증**
+- ✅ XSS 공격 방지 (HTML 엔티티 이스케이프)
+- ✅ SQL 인젝션 패턴 감지
+- ✅ 사용자명/이메일/전화번호 형식 검증
+- ✅ 비밀번호 강도 검증
+- ✅ 파일 업로드 검증 (확장자, 크기)
+
+**데이터 보안**
+- ✅ 회사별 완전한 데이터 분리
+- ✅ 자동 백업 시스템
+- ✅ 재고 데이터 포함 백업 (v1.1)
+
+**권장 사항**
+- 프로덕션에서는 HTTPS 필수
+- CSP (Content Security Policy) 헤더 설정
+- 정기적인 백업 및 복원 테스트
+
+---
+
 ## 버전 히스토리
 
-### v1.0.0 (2025-01-15)
+### v1.1.0 (2025-10-04)
+- 🔐 **보안 대폭 강화** (프로덕션 배포 준비)
+  - PBKDF2 비밀번호 해싱 (레거시 하위 호환)
+  - Web Crypto API 기반 세션 토큰
+  - 입력값 검증 및 XSS 방지
+  - SQL 인젝션 패턴 감지
+- 🗄️ **재고 데이터 백업/복원** 추가
+  - PRODUCT_INVENTORY, STOCK_MOVEMENTS, STOCK_LOTS 백업
+  - 구버전 백업 파일 호환성 유지
+- ✅ 재고 이동 ID 자동 할당
+
+### v1.0.0 (2025-10-04)
 - ✅ 초기 릴리스
 - ✅ 모든 핵심 기능 완성
 - ✅ 멀티테넌트 시스템
@@ -685,15 +719,6 @@ MIT License
 - ✅ 대시보드 및 차트
 
 ---
-
-## 문의
-
-프로젝트 관련 문의: [이메일 주소]
-
-GitHub Issues: [https://github.com/yourusername/simple-erp/issues](https://github.com/yourusername/simple-erp/issues)
-
----
-
 ## 상세 문서
 
 - [컴포넌트 가이드](./docs/components/README.md)
@@ -705,4 +730,4 @@ GitHub Issues: [https://github.com/yourusername/simple-erp/issues](https://githu
 
 ---
 
-**Simple ERP** - 중소 유통업체를 위한 완전하고 무료인 ERP 솔루션
+**Simple ERP** - 중소 유통업체를 위한 무료 ERP 솔루션

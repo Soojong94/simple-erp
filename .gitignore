@@ -113,6 +113,13 @@ src-tauri/gen/
 **/*.rs.bk
 Cargo.lock
 
+# Cargo 빌드 설정 (로컬 환경 설정)
+.cargo/config.toml
+
+# 문서 (빌드 가이드 등 - 로컬 참고용)
+docs/tauri-build-guide.md
+docs/recent-changes.md
+
 # Local configuration files
 config.local.json
 settings.local.json
@@ -133,3 +140,6 @@ api-keys.json
 # package-lock.json
 # yarn.lock
 public/KakaoTalk_20250929_190757590.jpg
+2025-10-04-5.txt
+2025-10-04-2025-10-04-5_v2.txt
+public/화면 캡처 2025-10-04 224039.png

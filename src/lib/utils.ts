@@ -1,11 +1,13 @@
 // 유틸리티 함수들
 
-// 숫자를 원화 형식으로 포맷
+// 숫자를 원화 형식으로 포맷 (1원 단위 보장)
 export function formatCurrency(amount: number): string {
   return new Intl.NumberFormat('ko-KR', {
     style: 'currency',
     currency: 'KRW',
-  }).format(amount)
+    minimumFractionDigits: 0,  // 소수점 0자리
+    maximumFractionDigits: 0   // 소수점 0자리 (1원 단위)
+  }).format(Math.round(amount))  // 반올림하여 1원 단위 보장
 }
 
 // 숫자를 콤마가 포함된 문자열로 변환

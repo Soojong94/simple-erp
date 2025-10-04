@@ -1,4 +1,4 @@
-import type { Customer, Product, TransactionWithItems, CustomerProductPrice, Company } from '../types'
+import type { Customer, Product, TransactionWithItems, CustomerProductPrice, Company, ProductInventory, StockMovement, StockLot } from '../types'
 import { getCurrentSession } from './auth/index'
 
 // Tauri API imports (런타임에서만 import)
@@ -42,6 +42,11 @@ export interface BackupData {
   transactions: TransactionWithItems[]
   customerProductPrices: CustomerProductPrice[]
   nextIds: Record<string, number>
+
+  // 🆕 재고 데이터 추가 (v1.1)
+  productInventory: ProductInventory[]
+  stockMovements: StockMovement[]
+  stockLots: StockLot[]
 
   metadata: {
     backupDate: string
@@ -139,7 +144,11 @@ const getStorageKeys = () => {
     TRANSACTIONS: `simple-erp-c${finalCompanyId}-transactions`,
     CUSTOMER_PRODUCT_PRICES: `simple-erp-c${finalCompanyId}-customer-product-prices`,
     COMPANY: `simple-erp-c${finalCompanyId}-company`,
-    NEXT_IDS: `simple-erp-c${finalCompanyId}-next-ids`
+    NEXT_IDS: `simple-erp-c${finalCompanyId}-next-ids`,
+    // 🆕 재고 데이터 키 추가 (v1.1)
+    PRODUCT_INVENTORY: `simple-erp-c${finalCompanyId}-product-inventory`,
+    STOCK_MOVEMENTS: `simple-erp-c${finalCompanyId}-stock-movements`,
+    STOCK_LOTS: `simple-erp-c${finalCompanyId}-stock-lots`
   } as const
 
   BackupLogger.debug('생성된 스토리지 키', keys)
@@ -258,13 +267,21 @@ export const collectBackupData = (): BackupData => {
     const customerProductPrices = getFromStorage<CustomerProductPrice[]>(STORAGE_KEYS.CUSTOMER_PRODUCT_PRICES, [])
     const nextIds = getFromStorage<Record<string, number>>(STORAGE_KEYS.NEXT_IDS, {})
 
-    const totalRecords = customers.length + products.length + transactions.length + customerProductPrices.length
+    // 🆕 재고 데이터 수집
+    const productInventory = getFromStorage<ProductInventory[]>(STORAGE_KEYS.PRODUCT_INVENTORY, [])
+    const stockMovements = getFromStorage<StockMovement[]>(STORAGE_KEYS.STOCK_MOVEMENTS, [])
+    const stockLots = getFromStorage<StockLot[]>(STORAGE_KEYS.STOCK_LOTS, [])
+
+    const totalRecords = customers.length + products.length + transactions.length + customerProductPrices.length + productInventory.length + stockMovements.length + stockLots.length
 
     BackupLogger.success('데이터 수집 완료', {
       customers: customers.length,
       products: products.length,
       transactions: transactions.length,
       prices: customerProductPrices.length,
+      productInventory: productInventory.length,
+      stockMovements: stockMovements.length,
+      stockLots: stockLots.length,
       totalRecords
     })
 
@@ -282,11 +299,15 @@ export const collectBackupData = (): BackupData => {
       transactions,
       customerProductPrices,
       nextIds,
+      // 🆕 재고 데이터 추가 (v1.1)
+      productInventory,
+      stockMovements,
+      stockLots,
       metadata: {
         backupDate,
-        version: '1.0.0',
+        version: '1.1.0',  // 버전 업데이트
         totalRecords,
-        appVersion: 'Simple ERP v1.0',
+        appVersion: 'Simple ERP v1.1',
         sourceCompanyId: session.company_id  // 🆕
       }
     }
@@ -297,7 +318,10 @@ export const collectBackupData = (): BackupData => {
       dataCounts: {
         customers: backupData.customers.length,
         products: backupData.products.length,
-        transactions: backupData.transactions.length
+        transactions: backupData.transactions.length,
+        productInventory: backupData.productInventory.length,
+        stockMovements: backupData.stockMovements.length,
+        stockLots: backupData.stockLots.length
       }
     })
 
@@ -542,6 +566,15 @@ export const validateBackupFile = (data: any): { isValid: boolean; error?: strin
       }
     }
 
+    // 🆕 재고 데이터 검증 (선택적 - 구버전 호환성)
+    const inventoryFields = ['productInventory', 'stockMovements', 'stockLots']
+    for (const field of inventoryFields) {
+      if (field in data && !Array.isArray(data[field])) {
+        BackupLogger.error(`${field}가 배열이 아님`, typeof data[field])
+        return { isValid: false, error: `${field}는 배열이어야 합니다.` }
+      }
+    }
+
     if (!data.metadata || typeof data.metadata !== 'object') {
       BackupLogger.error('메타데이터가 객체가 아님', data.metadata)
       return { isValid: false, error: '메타데이터가 유효하지 않습니다.' }
@@ -678,26 +711,54 @@ const migrateBackupData = (backupData: BackupData): BackupData => {
       is_active: price.is_active ?? true
     }
   })
-  
+
+  // 🆕 재고 데이터 마이그레이션 (구버전 호환성 - 없으면 빈 배열)
+  const migratedProductInventory = (backupData.productInventory || []).map(inv => ({
+    ...inv,
+    location: inv.location || 'cold',
+    safety_stock: inv.safety_stock ?? 30,
+    expiry_date: inv.expiry_date ?? undefined,  // 🆕 유통기한 (v1.2, 선택적)
+    last_updated: inv.last_updated ?? now
+  }))
+
+  const migratedStockMovements = (backupData.stockMovements || []).map(mov => ({
+    ...mov,
+    created_at: mov.created_at ?? now
+  }))
+
+  const migratedStockLots = (backupData.stockLots || []).map(lot => ({
+    ...lot,
+    status: lot.status || 'active',
+    created_at: lot.created_at ?? now
+  }))
+
   const migratedData = {
     ...backupData,
     customers: migratedCustomers,
     products: migratedProducts,
     transactions: migratedTransactions,
-    customerProductPrices: migratedCustomerProductPrices
+    customerProductPrices: migratedCustomerProductPrices,
+    // 🆕 재고 데이터 포함
+    productInventory: migratedProductInventory,
+    stockMovements: migratedStockMovements,
+    stockLots: migratedStockLots
   }
 
   BackupLogger.success('마이그레이션 완료', {
     customers: migratedCustomers.length,
     products: migratedProducts.length,
     transactions: migratedTransactions.length,
-    prices: migratedCustomerProductPrices.length
+    prices: migratedCustomerProductPrices.length,
+    productInventory: migratedProductInventory.length,
+    stockMovements: migratedStockMovements.length,
+    stockLots: migratedStockLots.length
   })
 
   BackupLogger.debug('마이그레이션 후 샘플 데이터', {
     sampleCustomer: migratedCustomers[0],
     sampleProduct: migratedProducts[0],
-    sampleTransaction: migratedTransactions[0]
+    sampleTransaction: migratedTransactions[0],
+    inventoryItemsCount: migratedProductInventory.length
   })
 
   return migratedData
@@ -776,6 +837,22 @@ export const restoreBackupData = (backupData: BackupData): void => {
     setToStorage(STORAGE_KEYS.NEXT_IDS, migratedData.nextIds)
     BackupLogger.info(`NEXT_IDS 저장 완료`, migratedData.nextIds)
 
+    // 🆕 재고 데이터 복원 (v1.1)
+    setToStorage(STORAGE_KEYS.PRODUCT_INVENTORY, migratedData.productInventory)
+    BackupLogger.info(`PRODUCT_INVENTORY 저장 완료`, {
+      count: migratedData.productInventory.length
+    })
+
+    setToStorage(STORAGE_KEYS.STOCK_MOVEMENTS, migratedData.stockMovements)
+    BackupLogger.info(`STOCK_MOVEMENTS 저장 완료`, {
+      count: migratedData.stockMovements.length
+    })
+
+    setToStorage(STORAGE_KEYS.STOCK_LOTS, migratedData.stockLots)
+    BackupLogger.info(`STOCK_LOTS 저장 완료`, {
+      count: migratedData.stockLots.length
+    })
+
     // ❌ 회사 정보는 복원하지 않음 (현재 회사 정보 유지)
     BackupLogger.info('회사 정보는 유지 (복원하지 않음)')
 
@@ -783,7 +860,10 @@ export const restoreBackupData = (backupData: BackupData): void => {
     const afterRestore = {
       customers: getFromStorage(STORAGE_KEYS.CUSTOMERS, []).length,
       products: getFromStorage(STORAGE_KEYS.PRODUCTS, []).length,
-      transactions: getFromStorage(STORAGE_KEYS.TRANSACTIONS, []).length
+      transactions: getFromStorage(STORAGE_KEYS.TRANSACTIONS, []).length,
+      productInventory: getFromStorage(STORAGE_KEYS.PRODUCT_INVENTORY, []).length,
+      stockMovements: getFromStorage(STORAGE_KEYS.STOCK_MOVEMENTS, []).length,
+      stockLots: getFromStorage(STORAGE_KEYS.STOCK_LOTS, []).length
     }
     BackupLogger.info('복원 후 현재 데이터', afterRestore)
 
@@ -803,12 +883,18 @@ export const restoreBackupData = (backupData: BackupData): void => {
       products: migratedData.products.length,
       transactions: migratedData.transactions.length,
       customerProductPrices: migratedData.customerProductPrices.length,
+      productInventory: migratedData.productInventory.length,
+      stockMovements: migratedData.stockMovements.length,
+      stockLots: migratedData.stockLots.length,
       backupDate: migratedData.metadata.backupDate,
       savedToCompany: session.company_id,
       savedToKeys: {
         customers: STORAGE_KEYS.CUSTOMERS,
         products: STORAGE_KEYS.PRODUCTS,
-        transactions: STORAGE_KEYS.TRANSACTIONS
+        transactions: STORAGE_KEYS.TRANSACTIONS,
+        inventory: STORAGE_KEYS.PRODUCT_INVENTORY,
+        movements: STORAGE_KEYS.STOCK_MOVEMENTS,
+        lots: STORAGE_KEYS.STOCK_LOTS
       }
     })
   } catch (error) {
